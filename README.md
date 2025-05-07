@@ -1,0 +1,2 @@
+# sftrails
+Check trail status
