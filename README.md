@@ -2,51 +2,58 @@
 
 Check trail status in San Francisco area parks.
 
-## Installation
+## Quick Start
+
+### Backend (FastAPI)
 
 ```bash
-pip install -e .
-```
-
-For development with testing tools:
-
-```bash
+# Install dependencies
 pip install -e ".[dev]"
+
+# Run the API server
+uvicorn sftrails.api.main:app --reload
+
+# API available at http://localhost:8000
+# Docs at http://localhost:8000/docs
 ```
 
-## Usage
+### Frontend (Next.js)
 
-```python
-from sftrails import TrailService, TrailStatus, TrailCondition
-from sftrails.client import InMemoryTrailSource
+```bash
+cd web
 
-# Create a data source (use HTTPTrailClient for real API)
-source = InMemoryTrailSource()
+# Install dependencies
+npm install
 
-# Create the service
-service = TrailService(source)
+# Create environment file
+cp .env.local.example .env.local
 
-# Get all open trails
-open_trails = await service.get_open_trails()
+# Run the development server
+npm run dev
 
-# Search with filters
-results = await service.search_trails(
-    status=TrailStatus.OPEN,
-    condition=TrailCondition.DRY,
-    max_length_miles=5.0,
-)
+# Frontend available at http://localhost:3000
 ```
+
+## API Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/v1/trails` | List all trails with optional filters |
+| `GET /api/v1/trails/{id}` | Get a specific trail |
+| `GET /api/v1/trails/search` | Search trails by name and filters |
+| `GET /api/v1/trails/summary` | Get status summary |
+| `GET /api/v1/parks` | List all parks |
+| `GET /api/v1/parks/{name}/trails` | Get trails for a park |
+| `GET /health` | Health check |
 
 ## Running Tests
 
 ```bash
-pytest
-```
+# Run all tests
+python -m pytest
 
-With coverage:
-
-```bash
-pytest --cov=src/sftrails --cov-report=html
+# Run with coverage
+python -m pytest --cov=src/sftrails --cov-report=html
 ```
 
 ## Project Structure
@@ -54,16 +61,30 @@ pytest --cov=src/sftrails --cov-report=html
 ```
 sftrails/
 ├── src/sftrails/
-│   ├── __init__.py      # Package exports
-│   ├── models.py        # Trail, TrailStatus, TrailCondition
-│   ├── service.py       # TrailService for querying trails
-│   ├── client.py        # Data source clients (HTTP, in-memory)
-│   └── exceptions.py    # Custom exceptions
-├── tests/
-│   ├── conftest.py      # Pytest fixtures
-│   ├── test_models.py   # Model tests
-│   ├── test_service.py  # Service tests
-│   ├── test_client.py   # Client tests
-│   └── test_exceptions.py
-└── pyproject.toml       # Project configuration
+│   ├── __init__.py       # Package exports
+│   ├── models.py         # Trail, TrailStatus, TrailCondition
+│   ├── service.py        # TrailService for querying trails
+│   ├── client.py         # Data source clients (HTTP, in-memory)
+│   ├── exceptions.py     # Custom exceptions
+│   └── api/
+│       ├── main.py       # FastAPI application
+│       ├── schemas.py    # Pydantic schemas
+│       ├── dependencies.py
+│       └── routes/
+│           ├── trails.py # Trail endpoints
+│           └── health.py # Health check
+├── tests/                # Python tests
+├── web/                  # Next.js frontend
+│   ├── src/
+│   │   ├── app/          # Next.js pages
+│   │   ├── components/   # React components
+│   │   └── lib/          # API client, types
+│   └── package.json
+└── pyproject.toml
 ```
+
+## Tech Stack
+
+- **Backend**: Python, FastAPI, Pydantic
+- **Frontend**: Next.js 14+, TypeScript, Tailwind CSS
+- **Testing**: pytest, pytest-asyncio
