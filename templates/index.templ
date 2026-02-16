@@ -1,0 +1,20 @@
+package templates
+
+import "sftrails/models"
+
+templ IndexPage(trails []models.TrailWithStatus) {
+	@Layout("SF Trails - South Florida MTB Trail Status") {
+		<div class="mb-6">
+			<p class="text-gray-700">Click <strong>Rideable</strong> or <strong>Closed</strong> to report current trail conditions. Status updates every 60 seconds.</p>
+		</div>
+		@TrailsList(trails)
+	}
+}
+
+templ TrailsList(trails []models.TrailWithStatus) {
+	<div id="trails-list" hx-get="/trails-list" hx-trigger="every 60s" hx-swap="outerHTML">
+		for _, trail := range trails {
+			@TrailCard(trail)
+		}
+	</div>
+}

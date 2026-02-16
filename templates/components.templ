@@ -1,0 +1,65 @@
+package templates
+
+import (
+	"fmt"
+	"sftrails/models"
+)
+
+templ StatusBar(trail models.TrailWithStatus) {
+	if trail.TotalVotes == 0 {
+		<div class="status-bar bar-none mt-2"></div>
+	} else if trail.OpenVotes > trail.ClosedVotes {
+		<div class="status-bar bar-open mt-2"></div>
+	} else if trail.ClosedVotes > trail.OpenVotes {
+		<div class="status-bar bar-closed mt-2"></div>
+	} else {
+		<div class="status-bar bar-mixed mt-2"></div>
+	}
+}
+
+templ TrailCard(trail models.TrailWithStatus) {
+	<div id={ fmt.Sprintf("trail-%d", trail.ID) } class="trail-card bg-white rounded-xl shadow p-5 mb-4">
+		<div class="flex items-start justify-between mb-1">
+			<div class="min-w-0 flex-1 mr-3">
+				<h2 class="text-lg font-bold text-gray-900 leading-tight">{ trail.Name }</h2>
+				<p class="text-sm text-gray-500">{ trail.City }</p>
+			</div>
+			<div class="flex items-center gap-2 flex-shrink-0">
+				if trail.TotalVotes > 0 {
+					<span class="text-xs text-gray-500">{ fmt.Sprintf("%d/%d", trail.OpenVotes, trail.ClosedVotes) }</span>
+				}
+				@StatusBadge(trail.Status)
+			</div>
+		</div>
+		<p class="text-sm text-gray-600 mb-3">{ trail.Description }</p>
+		@StatusBar(trail)
+		<div class="grid grid-cols-2 gap-3 mt-3">
+			<form hx-post="/vote" hx-target={ fmt.Sprintf("#trail-%d", trail.ID) } hx-swap="outerHTML">
+				<input type="hidden" name="trail_id" value={ fmt.Sprintf("%d", trail.ID) }/>
+				<input type="hidden" name="vote" value="open"/>
+				<input type="hidden" name="fingerprint" value=""/>
+				<button type="submit" class="w-full py-3 bg-green-600 text-white rounded-lg active:bg-green-800 font-semibold text-sm">
+					Rideable 🟢
+				</button>
+			</form>
+			<form hx-post="/vote" hx-target={ fmt.Sprintf("#trail-%d", trail.ID) } hx-swap="outerHTML">
+				<input type="hidden" name="trail_id" value={ fmt.Sprintf("%d", trail.ID) }/>
+				<input type="hidden" name="vote" value="closed"/>
+				<input type="hidden" name="fingerprint" value=""/>
+				<button type="submit" class="w-full py-3 bg-red-600 text-white rounded-lg active:bg-red-800 font-semibold text-sm">
+					Closed 🔴
+				</button>
+			</form>
+		</div>
+	</div>
+}
+
+templ StatusBadge(status models.TrailStatus) {
+	if status == models.StatusOpen {
+		<span class="flex-shrink-0 px-3 py-1 rounded-full text-sm font-semibold bg-green-500 text-white">Open</span>
+	} else if status == models.StatusClosed {
+		<span class="flex-shrink-0 px-3 py-1 rounded-full text-sm font-semibold bg-red-500 text-white">Closed</span>
+	} else {
+		<span class="flex-shrink-0 px-3 py-1 rounded-full text-sm font-semibold bg-gray-400 text-white">Unknown</span>
+	}
+}

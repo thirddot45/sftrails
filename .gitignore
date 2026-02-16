@@ -1,35 +1,38 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
+# Binaries
+sftrails
+*.exe
+*.dll
+*.so
+*.dylib
 
-# Distribution / packaging
-dist/
-build/
-*.egg-info/
-*.egg
+# Database
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
 
-# Virtual environments
-venv/
-.venv/
-env/
+# Test
+*.test
+*.out
+coverage.html
+
+# Go
+/vendor/
+go.work
+
+# Templ generated
+*_templ.go
 
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
+*~
 
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
-
-# Environment variables
-.env
-.env.local
-
-# OS files
+# OS
 .DS_Store
 Thumbs.db
+
+# Tmp
+tmp/
