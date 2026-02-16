@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"log"
 	"net/http"
 	"os"
@@ -12,6 +13,20 @@ import (
 	"sftrails/db"
 	"sftrails/handlers"
 )
+
+func startVoteResetScheduler(database *sql.DB) {
+	for {
+		now := time.Now()
+		next := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
+		time.Sleep(time.Until(next))
+		deleted, err := db.ResetVotes(database)
+		if err != nil {
+			log.Printf("Midnight vote reset failed: %v", err)
+		} else {
+			log.Printf("Midnight vote reset: deleted %d votes", deleted)
+		}
+	}
+}
 
 func main() {
 	dbPath := os.Getenv("DB_PATH")
@@ -27,6 +42,8 @@ func main() {
 	if err := db.Initialize(database); err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
+
+	go startVoteResetScheduler(database)
 
 	h := handlers.NewHandler(database)
 	rl := handlers.NewRateLimiter(30, time.Minute)

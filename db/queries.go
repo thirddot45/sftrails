@@ -179,6 +179,14 @@ func CastVote(db *sql.DB, trailID int64, vote models.VoteType, ip string, finger
 	return err
 }
 
+func ResetVotes(db *sql.DB) (int64, error) {
+	result, err := db.Exec(`DELETE FROM votes`)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 func HasRecentVote(db *sql.DB, trailID int64, ip string, fingerprint string) (bool, error) {
 	var count int
 	err := db.QueryRow(
