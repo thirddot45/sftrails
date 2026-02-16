@@ -1,200 +1,171 @@
 package db
 
 import (
+	"context"
 	"database/sql"
+	"errors"
+	"fmt"
 
 	"sftrails/models"
 )
 
-func GetTrailsWithStatus(db *sql.DB) ([]models.TrailWithStatus, error) {
-	query := `
-	SELECT
-		t.id, t.name, t.location, t.city, t.description,
-		t.latitude, t.longitude, t.created_at, t.updated_at,
-		COALESCE(
-			CASE
-				WHEN COALESCE(v4.total, 0) >= 3 THEN
-					CASE
-						WHEN v4.open_votes > v4.closed_votes THEN 'open'
-						WHEN v4.closed_votes > v4.open_votes THEN 'closed'
-						ELSE 'unknown'
-					END
-				WHEN COALESCE(v12.total, 0) >= 3 THEN
-					CASE
-						WHEN v12.open_votes > v12.closed_votes THEN 'open'
-						WHEN v12.closed_votes > v12.open_votes THEN 'closed'
-						ELSE 'unknown'
-					END
-				ELSE 'unknown'
-			END,
-			'unknown'
-		) AS status,
+// statusColumns is the shared SELECT expression for computing trail status.
+// It uses a single vote subquery (v) filtered to 12h, with conditional SUMs
+// to derive both the 4h and 12h windows from one table scan.
+const statusColumns = `
+	COALESCE(
 		CASE
-			WHEN COALESCE(v4.total, 0) >= 3 THEN COALESCE(v4.open_votes, 0)
-			ELSE COALESCE(v12.open_votes, 0)
-		END AS open_votes,
-		CASE
-			WHEN COALESCE(v4.total, 0) >= 3 THEN COALESCE(v4.closed_votes, 0)
-			ELSE COALESCE(v12.closed_votes, 0)
-		END AS closed_votes,
-		CASE
-			WHEN COALESCE(v4.total, 0) >= 3 THEN COALESCE(v4.total, 0)
-			ELSE COALESCE(v12.total, 0)
-		END AS total_votes
-	FROM trails t
+			WHEN COALESCE(v.total_4h, 0) >= 3 THEN
+				CASE
+					WHEN v.open_4h > v.closed_4h THEN 'open'
+					WHEN v.closed_4h > v.open_4h THEN 'closed'
+					ELSE 'unknown'
+				END
+			WHEN COALESCE(v.total_12h, 0) >= 3 THEN
+				CASE
+					WHEN v.open_12h > v.closed_12h THEN 'open'
+					WHEN v.closed_12h > v.open_12h THEN 'closed'
+					ELSE 'unknown'
+				END
+			ELSE 'unknown'
+		END,
+		'unknown'
+	) AS status,
+	CASE
+		WHEN COALESCE(v.total_4h, 0) >= 3 THEN COALESCE(v.open_4h, 0)
+		ELSE COALESCE(v.open_12h, 0)
+	END AS open_votes,
+	CASE
+		WHEN COALESCE(v.total_4h, 0) >= 3 THEN COALESCE(v.closed_4h, 0)
+		ELSE COALESCE(v.closed_12h, 0)
+	END AS closed_votes,
+	CASE
+		WHEN COALESCE(v.total_4h, 0) >= 3 THEN COALESCE(v.total_4h, 0)
+		ELSE COALESCE(v.total_12h, 0)
+	END AS total_votes`
+
+// voteSubquery returns a single LEFT JOIN that computes both 4h and 12h
+// vote windows in one pass over the votes table (filtered to 12h).
+// When filtered is true, the subquery includes a WHERE trail_id = ? placeholder.
+func voteSubquery(filtered bool) string {
+	where := ""
+	if filtered {
+		where = "trail_id = ? AND "
+	}
+	return fmt.Sprintf(`
 	LEFT JOIN (
 		SELECT
 			trail_id,
-			SUM(CASE WHEN vote = 'open' THEN 1 ELSE 0 END) AS open_votes,
-			SUM(CASE WHEN vote = 'closed' THEN 1 ELSE 0 END) AS closed_votes,
-			COUNT(*) AS total
+			SUM(CASE WHEN vote = 'open' AND created_at >= datetime('now', '-4 hours') THEN 1 ELSE 0 END) AS open_4h,
+			SUM(CASE WHEN vote = 'closed' AND created_at >= datetime('now', '-4 hours') THEN 1 ELSE 0 END) AS closed_4h,
+			SUM(CASE WHEN created_at >= datetime('now', '-4 hours') THEN 1 ELSE 0 END) AS total_4h,
+			SUM(CASE WHEN vote = 'open' THEN 1 ELSE 0 END) AS open_12h,
+			SUM(CASE WHEN vote = 'closed' THEN 1 ELSE 0 END) AS closed_12h,
+			COUNT(*) AS total_12h
 		FROM votes
-		WHERE created_at >= datetime('now', '-4 hours')
+		WHERE %screated_at >= datetime('now', '-12 hours')
 		GROUP BY trail_id
-	) v4 ON t.id = v4.trail_id
-	LEFT JOIN (
-		SELECT
-			trail_id,
-			SUM(CASE WHEN vote = 'open' THEN 1 ELSE 0 END) AS open_votes,
-			SUM(CASE WHEN vote = 'closed' THEN 1 ELSE 0 END) AS closed_votes,
-			COUNT(*) AS total
-		FROM votes
-		WHERE created_at >= datetime('now', '-12 hours')
-		GROUP BY trail_id
-	) v12 ON t.id = v12.trail_id
-	ORDER BY t.name
-	`
-
-	rows, err := db.Query(query)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var trails []models.TrailWithStatus
-	for rows.Next() {
-		var t models.TrailWithStatus
-		var status string
-		if err := rows.Scan(
-			&t.ID, &t.Name, &t.Location, &t.City, &t.Description,
-			&t.Latitude, &t.Longitude, &t.CreatedAt, &t.UpdatedAt,
-			&status, &t.OpenVotes, &t.ClosedVotes, &t.TotalVotes,
-		); err != nil {
-			return nil, err
-		}
-		t.Status = models.TrailStatus(status)
-		trails = append(trails, t)
-	}
-	return trails, rows.Err()
+	) v ON t.id = v.trail_id`, where)
 }
 
-func GetTrailWithStatus(db *sql.DB, trailID int64) (*models.TrailWithStatus, error) {
-	query := `
-	SELECT
-		t.id, t.name, t.location, t.city, t.description,
-		t.latitude, t.longitude, t.created_at, t.updated_at,
-		COALESCE(
-			CASE
-				WHEN COALESCE(v4.total, 0) >= 3 THEN
-					CASE
-						WHEN v4.open_votes > v4.closed_votes THEN 'open'
-						WHEN v4.closed_votes > v4.open_votes THEN 'closed'
-						ELSE 'unknown'
-					END
-				WHEN COALESCE(v12.total, 0) >= 3 THEN
-					CASE
-						WHEN v12.open_votes > v12.closed_votes THEN 'open'
-						WHEN v12.closed_votes > v12.open_votes THEN 'closed'
-						ELSE 'unknown'
-					END
-				ELSE 'unknown'
-			END,
-			'unknown'
-		) AS status,
-		CASE
-			WHEN COALESCE(v4.total, 0) >= 3 THEN COALESCE(v4.open_votes, 0)
-			ELSE COALESCE(v12.open_votes, 0)
-		END AS open_votes,
-		CASE
-			WHEN COALESCE(v4.total, 0) >= 3 THEN COALESCE(v4.closed_votes, 0)
-			ELSE COALESCE(v12.closed_votes, 0)
-		END AS closed_votes,
-		CASE
-			WHEN COALESCE(v4.total, 0) >= 3 THEN COALESCE(v4.total, 0)
-			ELSE COALESCE(v12.total, 0)
-		END AS total_votes
-	FROM trails t
-	LEFT JOIN (
-		SELECT
-			trail_id,
-			SUM(CASE WHEN vote = 'open' THEN 1 ELSE 0 END) AS open_votes,
-			SUM(CASE WHEN vote = 'closed' THEN 1 ELSE 0 END) AS closed_votes,
-			COUNT(*) AS total
-		FROM votes
-		WHERE trail_id = ? AND created_at >= datetime('now', '-4 hours')
-		GROUP BY trail_id
-	) v4 ON t.id = v4.trail_id
-	LEFT JOIN (
-		SELECT
-			trail_id,
-			SUM(CASE WHEN vote = 'open' THEN 1 ELSE 0 END) AS open_votes,
-			SUM(CASE WHEN vote = 'closed' THEN 1 ELSE 0 END) AS closed_votes,
-			COUNT(*) AS total
-		FROM votes
-		WHERE trail_id = ? AND created_at >= datetime('now', '-12 hours')
-		GROUP BY trail_id
-	) v12 ON t.id = v12.trail_id
-	WHERE t.id = ?
-	`
-
+func scanTrail(scanner interface{ Scan(dest ...any) error }) (models.TrailWithStatus, error) {
 	var t models.TrailWithStatus
 	var status string
-	err := db.QueryRow(query, trailID, trailID, trailID).Scan(
+	if err := scanner.Scan(
 		&t.ID, &t.Name, &t.Location, &t.City, &t.Description,
 		&t.Latitude, &t.Longitude, &t.CreatedAt, &t.UpdatedAt,
 		&status, &t.OpenVotes, &t.ClosedVotes, &t.TotalVotes,
-	)
-	if err == sql.ErrNoRows {
+	); err != nil {
+		return t, err
+	}
+	t.Status = models.TrailStatus(status)
+	return t, nil
+}
+
+func GetTrailsWithStatus(ctx context.Context, db *sql.DB) ([]models.TrailWithStatus, error) {
+	query := `
+	SELECT
+		t.id, t.name, t.location, t.city, t.description,
+		t.latitude, t.longitude, t.created_at, t.updated_at,` +
+		statusColumns + `
+	FROM trails t` +
+		voteSubquery(false) + `
+	ORDER BY t.name`
+
+	rows, err := db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("query trails: %w", err)
+	}
+	defer rows.Close()
+
+	trails := make([]models.TrailWithStatus, 0, 12)
+	for rows.Next() {
+		t, err := scanTrail(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan trail: %w", err)
+		}
+		trails = append(trails, t)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate trails: %w", err)
+	}
+	return trails, nil
+}
+
+func GetTrailWithStatus(ctx context.Context, db *sql.DB, trailID int64) (*models.TrailWithStatus, error) {
+	query := `
+	SELECT
+		t.id, t.name, t.location, t.city, t.description,
+		t.latitude, t.longitude, t.created_at, t.updated_at,` +
+		statusColumns + `
+	FROM trails t` +
+		voteSubquery(true) + `
+	WHERE t.id = ?`
+
+	t, err := scanTrail(db.QueryRowContext(ctx, query, trailID, trailID))
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("query trail %d: %w", trailID, err)
 	}
-	t.Status = models.TrailStatus(status)
 	return &t, nil
 }
 
-func CastVote(db *sql.DB, trailID int64, vote models.VoteType, ip string, fingerprint string) error {
-	dup, err := HasRecentVote(db, trailID, ip, fingerprint)
+func CastVote(ctx context.Context, db *sql.DB, trailID int64, vote models.VoteType, ip string, fingerprint string) error {
+	dup, err := HasRecentVote(ctx, db, trailID, ip, fingerprint)
 	if err != nil {
-		return err
+		return fmt.Errorf("check recent vote: %w", err)
 	}
 	if dup {
 		return nil
 	}
-	_, err = db.Exec(
+	_, err = db.ExecContext(ctx,
 		`INSERT INTO votes (trail_id, vote, ip_address, fingerprint) VALUES (?, ?, ?, ?)`,
 		trailID, string(vote), ip, fingerprint,
 	)
-	return err
+	if err != nil {
+		return fmt.Errorf("insert vote: %w", err)
+	}
+	return nil
 }
 
-func ResetVotes(db *sql.DB) (int64, error) {
-	result, err := db.Exec(`DELETE FROM votes`)
+func ResetVotes(ctx context.Context, db *sql.DB) (int64, error) {
+	result, err := db.ExecContext(ctx, `DELETE FROM votes`)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("delete votes: %w", err)
 	}
 	return result.RowsAffected()
 }
 
-func HasRecentVote(db *sql.DB, trailID int64, ip string, fingerprint string) (bool, error) {
-	var count int
-	err := db.QueryRow(
-		`SELECT COUNT(*) FROM votes WHERE trail_id = ? AND ip_address = ? AND fingerprint = ? AND created_at >= datetime('now', '-1 hour')`,
+func HasRecentVote(ctx context.Context, db *sql.DB, trailID int64, ip string, fingerprint string) (bool, error) {
+	var exists bool
+	err := db.QueryRowContext(ctx,
+		`SELECT EXISTS(SELECT 1 FROM votes WHERE trail_id = ? AND ip_address = ? AND fingerprint = ? AND created_at >= datetime('now', '-1 hour') LIMIT 1)`,
 		trailID, ip, fingerprint,
-	).Scan(&count)
+	).Scan(&exists)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("query recent vote: %w", err)
 	}
-	return count > 0, nil
+	return exists, nil
 }

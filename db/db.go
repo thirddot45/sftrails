@@ -1,7 +1,9 @@
 package db
 
 import (
+	"context"
 	"database/sql"
+	"fmt"
 
 	_ "modernc.org/sqlite"
 )
@@ -9,9 +11,9 @@ import (
 func Open(path string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite", path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
-	// Run pragmas individually after opening
+	db.SetMaxOpenConns(1)
 	pragmas := []string{
 		"PRAGMA journal_mode=WAL",
 		"PRAGMA foreign_keys=ON",
@@ -20,15 +22,18 @@ func Open(path string) (*sql.DB, error) {
 	for _, p := range pragmas {
 		if _, err := db.Exec(p); err != nil {
 			db.Close()
-			return nil, err
+			return nil, fmt.Errorf("exec pragma %q: %w", p, err)
 		}
 	}
 	return db, nil
 }
 
-func Initialize(d *sql.DB) error {
-	if err := RunMigrations(d); err != nil {
-		return err
+func Initialize(ctx context.Context, d *sql.DB) error {
+	if err := RunMigrations(ctx, d); err != nil {
+		return fmt.Errorf("run migrations: %w", err)
 	}
-	return SeedTrails(d)
+	if err := SeedTrails(ctx, d); err != nil {
+		return fmt.Errorf("seed trails: %w", err)
+	}
+	return nil
 }

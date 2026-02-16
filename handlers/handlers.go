@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -22,21 +23,27 @@ func NewHandler(database *sql.DB) *Handler {
 }
 
 func (h *Handler) HandleIndex(w http.ResponseWriter, r *http.Request) {
-	trails, err := db.GetTrailsWithStatus(h.db)
+	trails, err := db.GetTrailsWithStatus(r.Context(), h.db)
 	if err != nil {
+		slog.Error("failed to get trails", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-	templates.IndexPage(trails).Render(r.Context(), w)
+	if err := templates.IndexPage(trails).Render(r.Context(), w); err != nil {
+		slog.Error("failed to render index", "error", err)
+	}
 }
 
 func (h *Handler) HandleTrailsList(w http.ResponseWriter, r *http.Request) {
-	trails, err := db.GetTrailsWithStatus(h.db)
+	trails, err := db.GetTrailsWithStatus(r.Context(), h.db)
 	if err != nil {
+		slog.Error("failed to get trails", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-	templates.TrailsList(trails).Render(r.Context(), w)
+	if err := templates.TrailsList(trails).Render(r.Context(), w); err != nil {
+		slog.Error("failed to render trails list", "error", err)
+	}
 }
 
 func (h *Handler) HandleVote(w http.ResponseWriter, r *http.Request) {
@@ -66,24 +73,30 @@ func (h *Handler) HandleVote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ctx := r.Context()
 	ip := GetIP(r)
-	if err := db.CastVote(h.db, trailID, voteType, ip, fingerprint); err != nil {
+	if err := db.CastVote(ctx, h.db, trailID, voteType, ip, fingerprint); err != nil {
+		slog.Error("failed to cast vote", "trail_id", trailID, "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	trail, err := db.GetTrailWithStatus(h.db, trailID)
+	trail, err := db.GetTrailWithStatus(ctx, h.db, trailID)
 	if err != nil || trail == nil {
+		slog.Error("failed to get trail after vote", "trail_id", trailID, "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	templates.TrailCard(*trail).Render(r.Context(), w)
+	if err := templates.TrailCard(*trail).Render(ctx, w); err != nil {
+		slog.Error("failed to render trail card", "trail_id", trailID, "error", err)
+	}
 }
 
 func (h *Handler) HandleAPITrails(w http.ResponseWriter, r *http.Request) {
-	trails, err := db.GetTrailsWithStatus(h.db)
+	trails, err := db.GetTrailsWithStatus(r.Context(), h.db)
 	if err != nil {
+		slog.Error("failed to get trails for API", "error", err)
 		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
 		return
 	}
@@ -100,7 +113,9 @@ func (h *Handler) HandleAPITrails(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "public, max-age=60")
-	json.NewEncoder(w).Encode(resp)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		slog.Error("failed to encode trails response", "error", err)
+	}
 }
 
 func (h *Handler) HandleAPITrail(w http.ResponseWriter, r *http.Request) {
@@ -111,8 +126,9 @@ func (h *Handler) HandleAPITrail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	trail, err := db.GetTrailWithStatus(h.db, id)
+	trail, err := db.GetTrailWithStatus(r.Context(), h.db, id)
 	if err != nil {
+		slog.Error("failed to get trail for API", "trail_id", id, "error", err)
 		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
 		return
 	}
@@ -123,7 +139,9 @@ func (h *Handler) HandleAPITrail(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "public, max-age=60")
-	json.NewEncoder(w).Encode(models.TrailToAPI(*trail))
+	if err := json.NewEncoder(w).Encode(models.TrailToAPI(*trail)); err != nil {
+		slog.Error("failed to encode trail response", "trail_id", id, "error", err)
+	}
 }
 
 func (h *Handler) HandleRobotsTxt(w http.ResponseWriter, r *http.Request) {

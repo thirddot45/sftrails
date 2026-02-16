@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"testing"
 	"time"
@@ -14,7 +15,7 @@ func setupTestDB(t *testing.T) *sql.DB {
 	if err != nil {
 		t.Fatalf("Failed to open test DB: %v", err)
 	}
-	if err := Initialize(d); err != nil {
+	if err := Initialize(context.Background(), d); err != nil {
 		t.Fatalf("Failed to initialize test DB: %v", err)
 	}
 	return d
@@ -24,7 +25,7 @@ func TestGetTrailsWithStatus(t *testing.T) {
 	d := setupTestDB(t)
 	defer d.Close()
 
-	trails, err := GetTrailsWithStatus(d)
+	trails, err := GetTrailsWithStatus(context.Background(), d)
 	if err != nil {
 		t.Fatalf("GetTrailsWithStatus error: %v", err)
 	}
@@ -41,13 +42,14 @@ func TestGetTrailsWithStatus(t *testing.T) {
 func TestCastVote(t *testing.T) {
 	d := setupTestDB(t)
 	defer d.Close()
+	ctx := context.Background()
 
-	err := CastVote(d, 1, models.VoteOpen, "127.0.0.1", "abc123")
+	err := CastVote(ctx, d, 1, models.VoteOpen, "127.0.0.1", "abc123")
 	if err != nil {
 		t.Fatalf("CastVote error: %v", err)
 	}
 
-	trail, err := GetTrailWithStatus(d, 1)
+	trail, err := GetTrailWithStatus(ctx, d, 1)
 	if err != nil {
 		t.Fatalf("GetTrailWithStatus error: %v", err)
 	}
@@ -62,18 +64,19 @@ func TestCastVote(t *testing.T) {
 func TestDuplicateVoteRejection(t *testing.T) {
 	d := setupTestDB(t)
 	defer d.Close()
+	ctx := context.Background()
 
 	// First vote should succeed
-	if err := CastVote(d, 1, models.VoteOpen, "127.0.0.1", "abc123"); err != nil {
+	if err := CastVote(ctx, d, 1, models.VoteOpen, "127.0.0.1", "abc123"); err != nil {
 		t.Fatalf("First CastVote error: %v", err)
 	}
 
 	// Second vote from same IP+fingerprint within 1 hour should be silently rejected
-	if err := CastVote(d, 1, models.VoteOpen, "127.0.0.1", "abc123"); err != nil {
+	if err := CastVote(ctx, d, 1, models.VoteOpen, "127.0.0.1", "abc123"); err != nil {
 		t.Fatalf("Second CastVote error: %v", err)
 	}
 
-	trail, err := GetTrailWithStatus(d, 1)
+	trail, err := GetTrailWithStatus(ctx, d, 1)
 	if err != nil {
 		t.Fatalf("GetTrailWithStatus error: %v", err)
 	}
@@ -85,15 +88,16 @@ func TestDuplicateVoteRejection(t *testing.T) {
 func TestDifferentIPCanVote(t *testing.T) {
 	d := setupTestDB(t)
 	defer d.Close()
+	ctx := context.Background()
 
-	if err := CastVote(d, 1, models.VoteOpen, "127.0.0.1", "abc123"); err != nil {
+	if err := CastVote(ctx, d, 1, models.VoteOpen, "127.0.0.1", "abc123"); err != nil {
 		t.Fatalf("First CastVote error: %v", err)
 	}
-	if err := CastVote(d, 1, models.VoteOpen, "192.168.1.1", "def456"); err != nil {
+	if err := CastVote(ctx, d, 1, models.VoteOpen, "192.168.1.1", "def456"); err != nil {
 		t.Fatalf("Second CastVote error: %v", err)
 	}
 
-	trail, err := GetTrailWithStatus(d, 1)
+	trail, err := GetTrailWithStatus(ctx, d, 1)
 	if err != nil {
 		t.Fatalf("GetTrailWithStatus error: %v", err)
 	}
@@ -105,16 +109,17 @@ func TestDifferentIPCanVote(t *testing.T) {
 func TestStatusComputation(t *testing.T) {
 	d := setupTestDB(t)
 	defer d.Close()
+	ctx := context.Background()
 
 	// Cast 3 open votes (different IPs to avoid dedup)
 	for i := range 3 {
 		ip := "10.0.0." + string(rune('1'+i))
-		if err := CastVote(d, 1, models.VoteOpen, ip, "fp"+string(rune('1'+i))); err != nil {
+		if err := CastVote(ctx, d, 1, models.VoteOpen, ip, "fp"+string(rune('1'+i))); err != nil {
 			t.Fatalf("CastVote error: %v", err)
 		}
 	}
 
-	trail, err := GetTrailWithStatus(d, 1)
+	trail, err := GetTrailWithStatus(ctx, d, 1)
 	if err != nil {
 		t.Fatalf("GetTrailWithStatus error: %v", err)
 	}
@@ -126,13 +131,14 @@ func TestStatusComputation(t *testing.T) {
 func TestStatusMajorityClosed(t *testing.T) {
 	d := setupTestDB(t)
 	defer d.Close()
+	ctx := context.Background()
 
 	// 2 closed, 1 open = closed majority (with 3+ votes)
-	CastVote(d, 1, models.VoteClosed, "10.0.0.1", "fp1")
-	CastVote(d, 1, models.VoteClosed, "10.0.0.2", "fp2")
-	CastVote(d, 1, models.VoteOpen, "10.0.0.3", "fp3")
+	CastVote(ctx, d, 1, models.VoteClosed, "10.0.0.1", "fp1")
+	CastVote(ctx, d, 1, models.VoteClosed, "10.0.0.2", "fp2")
+	CastVote(ctx, d, 1, models.VoteOpen, "10.0.0.3", "fp3")
 
-	trail, err := GetTrailWithStatus(d, 1)
+	trail, err := GetTrailWithStatus(ctx, d, 1)
 	if err != nil {
 		t.Fatalf("GetTrailWithStatus error: %v", err)
 	}
@@ -144,8 +150,9 @@ func TestStatusMajorityClosed(t *testing.T) {
 func TestHasRecentVote(t *testing.T) {
 	d := setupTestDB(t)
 	defer d.Close()
+	ctx := context.Background()
 
-	has, err := HasRecentVote(d, 1, "127.0.0.1", "abc123")
+	has, err := HasRecentVote(ctx, d, 1, "127.0.0.1", "abc123")
 	if err != nil {
 		t.Fatalf("HasRecentVote error: %v", err)
 	}
@@ -153,9 +160,9 @@ func TestHasRecentVote(t *testing.T) {
 		t.Error("Expected no recent vote")
 	}
 
-	CastVote(d, 1, models.VoteOpen, "127.0.0.1", "abc123")
+	CastVote(ctx, d, 1, models.VoteOpen, "127.0.0.1", "abc123")
 
-	has, err = HasRecentVote(d, 1, "127.0.0.1", "abc123")
+	has, err = HasRecentVote(ctx, d, 1, "127.0.0.1", "abc123")
 	if err != nil {
 		t.Fatalf("HasRecentVote error: %v", err)
 	}
@@ -168,7 +175,7 @@ func TestGetTrailWithStatusNotFound(t *testing.T) {
 	d := setupTestDB(t)
 	defer d.Close()
 
-	trail, err := GetTrailWithStatus(d, 9999)
+	trail, err := GetTrailWithStatus(context.Background(), d, 9999)
 	if err != nil {
 		t.Fatalf("GetTrailWithStatus error: %v", err)
 	}
@@ -180,6 +187,7 @@ func TestGetTrailWithStatusNotFound(t *testing.T) {
 func TestStatusTimeWindow(t *testing.T) {
 	d := setupTestDB(t)
 	defer d.Close()
+	ctx := context.Background()
 
 	// Insert votes manually with timestamps older than 4 hours but within 12 hours
 	fiveHoursAgo := time.Now().UTC().Add(-5 * time.Hour).Format("2006-01-02 15:04:05")
@@ -193,7 +201,7 @@ func TestStatusTimeWindow(t *testing.T) {
 		}
 	}
 
-	trail, err := GetTrailWithStatus(d, 1)
+	trail, err := GetTrailWithStatus(ctx, d, 1)
 	if err != nil {
 		t.Fatalf("GetTrailWithStatus error: %v", err)
 	}

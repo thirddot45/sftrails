@@ -1,11 +1,15 @@
 package db
 
-import "database/sql"
+import (
+	"context"
+	"database/sql"
+	"fmt"
+)
 
-func SeedTrails(db *sql.DB) error {
+func SeedTrails(ctx context.Context, db *sql.DB) error {
 	var count int
-	if err := db.QueryRow("SELECT COUNT(*) FROM trails").Scan(&count); err != nil {
-		return err
+	if err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM trails").Scan(&count); err != nil {
+		return fmt.Errorf("count trails: %w", err)
 	}
 	if count > 0 {
 		return nil
@@ -29,16 +33,26 @@ func SeedTrails(db *sql.DB) error {
 		{"Tree Tops Park", "Davie", "Davie", "Shaded trails through tropical hardwood hammock", 26.0585, -80.2706},
 	}
 
-	stmt, err := db.Prepare(`INSERT INTO trails (name, location, city, description, latitude, longitude) VALUES (?, ?, ?, ?, ?, ?)`)
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.PrepareContext(ctx, `INSERT INTO trails (name, location, city, description, latitude, longitude) VALUES (?, ?, ?, ?, ?, ?)`)
+	if err != nil {
+		return fmt.Errorf("prepare insert: %w", err)
 	}
 	defer stmt.Close()
 
 	for _, t := range trails {
-		if _, err := stmt.Exec(t.name, t.location, t.city, t.description, t.lat, t.lng); err != nil {
-			return err
+		if _, err := stmt.ExecContext(ctx, t.name, t.location, t.city, t.description, t.lat, t.lng); err != nil {
+			return fmt.Errorf("insert trail %q: %w", t.name, err)
 		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit seed: %w", err)
 	}
 	return nil
 }

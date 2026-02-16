@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -14,16 +14,22 @@ import (
 	"sftrails/handlers"
 )
 
-func startVoteResetScheduler(database *sql.DB) {
+func startVoteResetScheduler(ctx context.Context, database *sql.DB) {
 	for {
 		now := time.Now()
 		next := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
-		time.Sleep(time.Until(next))
-		deleted, err := db.ResetVotes(database)
+		timer := time.NewTimer(time.Until(next))
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		case <-timer.C:
+		}
+		deleted, err := db.ResetVotes(ctx, database)
 		if err != nil {
-			log.Printf("Midnight vote reset failed: %v", err)
+			slog.Error("midnight vote reset failed", "error", err)
 		} else {
-			log.Printf("Midnight vote reset: deleted %d votes", deleted)
+			slog.Info("midnight vote reset", "deleted", deleted)
 		}
 	}
 }
@@ -35,15 +41,20 @@ func main() {
 	}
 	database, err := db.Open(dbPath)
 	if err != nil {
-		log.Fatalf("Failed to open database: %v", err)
+		slog.Error("failed to open database", "error", err)
+		os.Exit(1)
 	}
 	defer database.Close()
 
-	if err := db.Initialize(database); err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	if err := db.Initialize(ctx, database); err != nil {
+		slog.Error("failed to initialize database", "error", err)
+		os.Exit(1)
 	}
 
-	go startVoteResetScheduler(database)
+	go startVoteResetScheduler(ctx, database)
 
 	h := handlers.NewHandler(database)
 	rl := handlers.NewRateLimiter(30, time.Minute)
@@ -65,22 +76,28 @@ func main() {
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
 
 	server := &http.Server{
-		Addr:    ":8080",
-		Handler: handlers.LoggingMiddleware(mux),
+		Addr:              ":8080",
+		Handler:           handlers.LoggingMiddleware(mux),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	go func() {
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 		<-sigCh
-		log.Println("Shutting down...")
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		server.Shutdown(ctx)
+		slog.Info("shutting down")
+		cancel()
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer shutdownCancel()
+		server.Shutdown(shutdownCtx)
 	}()
 
-	log.Println("SF Trails server starting on http://localhost:8080")
+	slog.Info("server starting", "addr", "http://localhost:8080")
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
-		log.Fatalf("Server error: %v", err)
+		slog.Error("server error", "error", err)
+		os.Exit(1)
 	}
 }

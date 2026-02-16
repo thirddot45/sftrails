@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -19,7 +20,7 @@ func setupTestHandler(t *testing.T) *Handler {
 	if err != nil {
 		t.Fatalf("Failed to open test DB: %v", err)
 	}
-	if err := db.Initialize(d); err != nil {
+	if err := db.Initialize(context.Background(), d); err != nil {
 		t.Fatalf("Failed to initialize test DB: %v", err)
 	}
 	t.Cleanup(func() { d.Close() })

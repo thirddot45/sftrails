@@ -1,8 +1,12 @@
 package db
 
-import "database/sql"
+import (
+	"context"
+	"database/sql"
+	"fmt"
+)
 
-func RunMigrations(db *sql.DB) error {
+func RunMigrations(ctx context.Context, db *sql.DB) error {
 	schema := `
 	CREATE TABLE IF NOT EXISTS trails (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -28,6 +32,8 @@ func RunMigrations(db *sql.DB) error {
 	CREATE INDEX IF NOT EXISTS idx_votes_trail_created ON votes(trail_id, created_at DESC);
 	CREATE INDEX IF NOT EXISTS idx_votes_dedup ON votes(trail_id, ip_address, fingerprint, created_at DESC);
 	`
-	_, err := db.Exec(schema)
-	return err
+	if _, err := db.ExecContext(ctx, schema); err != nil {
+		return fmt.Errorf("exec schema: %w", err)
+	}
+	return nil
 }
