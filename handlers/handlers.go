@@ -194,7 +194,7 @@ func (h *Handler) HandleSitemap(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://sftrails.com/</loc>
+    <loc>https://sftrails.info/</loc>
     <lastmod>%s</lastmod>
     <changefreq>hourly</changefreq>
     <priority>1.0</priority>

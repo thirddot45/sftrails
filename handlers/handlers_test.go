@@ -178,8 +178,8 @@ func TestHandleSitemap(t *testing.T) {
 	if !strings.Contains(body, "<urlset") {
 		t.Error("Expected sitemap to contain '<urlset'")
 	}
-	if !strings.Contains(body, "sftrails.com") {
-		t.Error("Expected sitemap to contain 'sftrails.com'")
+	if !strings.Contains(body, "sftrails.info") {
+		t.Error("Expected sitemap to contain 'sftrails.info'")
 	}
 	if ct := w.Header().Get("Content-Type"); !strings.Contains(ct, "application/xml") {
 		t.Errorf("Expected Content-Type application/xml, got %s", ct)

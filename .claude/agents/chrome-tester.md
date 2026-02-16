@@ -116,7 +116,7 @@ Test that all SEO and discoverability elements are present:
 8. **robots.txt content**: Response contains `User-agent: *`, `Allow: /`, `Disallow: /vote`, and `Sitemap:`.
 9. **robots.txt AI bots**: Response contains directives for `GPTBot`, `ClaudeBot`, `PerplexityBot`.
 10. **sitemap.xml**: `GET /sitemap.xml` returns HTTP 200 with `Content-Type` containing `xml`.
-11. **sitemap.xml content**: Response contains `<urlset`, `<loc>`, and `sftrails.com`.
+11. **sitemap.xml content**: Response contains `<urlset`, `<loc>`, and `sftrails.info`.
 12. **llms.txt**: `GET /llms.txt` returns HTTP 200 and contains `SF Trails`.
 13. **llms-full.txt**: `GET /llms-full.txt` returns HTTP 200 and contains content.
 
