@@ -337,6 +337,61 @@ func TestRobotsTxtAICrawlers(t *testing.T) {
 	}
 }
 
+func TestVotePersistsOnRefresh(t *testing.T) {
+	h := setupTestHandler(t)
+
+	// Cast a vote
+	form := url.Values{}
+	form.Set("trail_id", "1")
+	form.Set("vote", "open")
+	form.Set("fingerprint", "refresh-test-fp")
+
+	req := httptest.NewRequest("POST", "/vote", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	h.HandleVote(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Vote failed with status %d", w.Code)
+	}
+
+	// "Refresh" by requesting the index page again
+	req = httptest.NewRequest("GET", "/", nil)
+	w = httptest.NewRecorder()
+	h.HandleIndex(w, req)
+
+	body := w.Body.String()
+	if !strings.Contains(body, "1/0") {
+		t.Error("Expected vote count '1/0' to persist after refresh")
+	}
+}
+
+func TestNoCacheHeadersOnHTMLPages(t *testing.T) {
+	h := setupTestHandler(t)
+
+	t.Run("index", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/", nil)
+		w := httptest.NewRecorder()
+		h.HandleIndex(w, req)
+
+		cc := w.Header().Get("Cache-Control")
+		if !strings.Contains(cc, "no-cache") || !strings.Contains(cc, "no-store") {
+			t.Errorf("Expected Cache-Control no-cache/no-store on index, got %q", cc)
+		}
+	})
+
+	t.Run("trails-list", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/trails-list", nil)
+		w := httptest.NewRecorder()
+		h.HandleTrailsList(w, req)
+
+		cc := w.Header().Get("Cache-Control")
+		if !strings.Contains(cc, "no-cache") || !strings.Contains(cc, "no-store") {
+			t.Errorf("Expected Cache-Control no-cache/no-store on trails-list, got %q", cc)
+		}
+	})
+}
+
 func TestGetIP(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -147,11 +147,12 @@ Test the voting system:
 3. The vote response contains the trail name for trail ID 1.
 4. `POST /vote` with `vote=closed` returns HTTP 200 and contains trail card HTML.
 5. After voting, `GET /api/trails/1` reflects updated vote counts (total_votes > 0).
-6. `POST /vote` with missing `trail_id` returns HTTP 400.
-7. `POST /vote` with `trail_id=0` returns HTTP 400.
-8. `POST /vote` with `trail_id=abc` returns HTTP 400.
-9. `POST /vote` with invalid `vote=maybe` returns HTTP 400.
-10. `POST /vote` with empty body returns HTTP 400.
+6. **Vote persists on refresh**: After voting, `GET /` returns HTML containing the updated vote count (e.g., `1/0`). Votes must not disappear on page reload.
+7. `POST /vote` with missing `trail_id` returns HTTP 400.
+8. `POST /vote` with `trail_id=0` returns HTTP 400.
+9. `POST /vote` with `trail_id=abc` returns HTTP 400.
+10. `POST /vote` with invalid `vote=maybe` returns HTTP 400.
+11. `POST /vote` with empty body returns HTTP 400.
 
 ### Category 6: HTMX Interactions
 
@@ -180,10 +181,12 @@ Test that HTMX attributes are correctly set up:
 
 ### Category 9: Response Headers and Caching
 
-1. `GET /api/trails` includes `Cache-Control` header.
-2. `GET /robots.txt` returns correct `Content-Type: text/plain`.
-3. `GET /sitemap.xml` returns correct `Content-Type` containing `application/xml`.
-4. `GET /api/trails` returns `Content-Type: application/json; charset=utf-8`.
+1. `GET /api/trails` includes `Cache-Control` header with `max-age`.
+2. `GET /` includes `Cache-Control: no-cache, no-store, must-revalidate` (dynamic HTML must not be cached).
+3. `GET /trails-list` includes `Cache-Control: no-cache, no-store, must-revalidate` (HTMX partial must not be cached).
+4. `GET /robots.txt` returns correct `Content-Type: text/plain`.
+5. `GET /sitemap.xml` returns correct `Content-Type` containing `application/xml`.
+6. `GET /api/trails` returns `Content-Type: application/json; charset=utf-8`.
 
 ### Category 10: Responsive Layout Verification
 

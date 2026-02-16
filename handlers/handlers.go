@@ -29,6 +29,7 @@ func (h *Handler) HandleIndex(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	if err := templates.IndexPage(trails).Render(r.Context(), w); err != nil {
 		slog.Error("failed to render index", "error", err)
 	}
@@ -41,6 +42,7 @@ func (h *Handler) HandleTrailsList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	if err := templates.TrailsList(trails).Render(r.Context(), w); err != nil {
 		slog.Error("failed to render trails list", "error", err)
 	}
