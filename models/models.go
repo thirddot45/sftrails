@@ -45,3 +45,40 @@ type TrailWithStatus struct {
 	ClosedVotes int
 	TotalVotes  int
 }
+
+// API response types for JSON endpoints
+
+type TrailAPIResponse struct {
+	ID          int64   `json:"id"`
+	Name        string  `json:"name"`
+	Location    string  `json:"location"`
+	City        string  `json:"city"`
+	Description string  `json:"description"`
+	Latitude    float64 `json:"latitude"`
+	Longitude   float64 `json:"longitude"`
+	Status      string  `json:"status"`
+	OpenVotes   int     `json:"open_votes"`
+	ClosedVotes int     `json:"closed_votes"`
+	TotalVotes  int     `json:"total_votes"`
+}
+
+type TrailsAPIResponse struct {
+	Trails      []TrailAPIResponse `json:"trails"`
+	GeneratedAt string             `json:"generated_at"`
+}
+
+func TrailToAPI(t TrailWithStatus) TrailAPIResponse {
+	return TrailAPIResponse{
+		ID:          t.ID,
+		Name:        t.Name,
+		Location:    t.Location,
+		City:        t.City,
+		Description: t.Description,
+		Latitude:    t.Latitude,
+		Longitude:   t.Longitude,
+		Status:      string(t.Status),
+		OpenVotes:   t.OpenVotes,
+		ClosedVotes: t.ClosedVotes,
+		TotalVotes:  t.TotalVotes,
+	}
+}

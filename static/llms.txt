@@ -1,0 +1,36 @@
+# SF Trails
+
+> Community-driven South Florida mountain bike trail status tracker
+
+SF Trails is a web application that provides real-time trail status information for mountain bike trails in South Florida. Trail statuses are determined by community votes -- riders report whether trails are currently rideable (open) or closed.
+
+## How It Works
+
+- Users vote on whether each trail is "Rideable" (open) or "Closed"
+- Status is calculated from votes in the last 4-12 hours
+- A minimum of 3 votes is required to determine status
+- Votes reset daily at midnight
+
+## Trails
+
+The following South Florida mountain bike trails are tracked:
+
+- Markham Park (Sunrise) - Technical singletrack with rock gardens and log features
+- Oleta River State Park (North Miami Beach) - Flowy trails through mangroves with bay views
+- Virginia Key (Key Biscayne) - Tight singletrack through coastal hardwood hammock
+- Quiet Waters Park (Deerfield Beach) - Beginner-friendly flat trails with fun features
+- Halpatiokee Regional Park (Stuart) - Natural terrain trails through pine flatwoods
+- Amelia Earhart Park (Hialeah) - Short but fun loops with tabletops and berms
+- Jonathan Dickinson State Park (Hobe Sound) - Sandy singletrack through scrub and pine forest
+- Riverbend Park (Jupiter) - Flowy trails along the Loxahatchee River
+- Dyer Park (West Palm Beach) - Fast and flowy with nice elevation changes
+- Pinehurst Park (Greenacres) - Compact trail system with good mix of terrain
+- West Delray Regional Park (Delray Beach) - Well-maintained trails with progressive features
+- Tree Tops Park (Davie) - Shaded trails through tropical hardwood hammock
+
+## API
+
+Trail data is available as JSON at the `/api/trails` endpoint. Each trail includes:
+- name, city, description, location coordinates (latitude/longitude)
+- current status (open, closed, or unknown)
+- vote counts (open votes, closed votes, total votes)

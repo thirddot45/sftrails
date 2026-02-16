@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"sftrails/db"
+	"sftrails/models"
 )
 
 func setupTestHandler(t *testing.T) *Handler {
@@ -136,6 +138,201 @@ func TestRateLimiter(t *testing.T) {
 	// Different IP should still be allowed
 	if !rl.Allow("192.168.1.1") {
 		t.Error("Different IP should be allowed")
+	}
+}
+
+func TestHandleRobotsTxt(t *testing.T) {
+	h := setupTestHandler(t)
+	req := httptest.NewRequest("GET", "/robots.txt", nil)
+	w := httptest.NewRecorder()
+
+	h.HandleRobotsTxt(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected 200, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "User-agent: *") {
+		t.Error("Expected robots.txt to contain 'User-agent: *'")
+	}
+	if !strings.Contains(body, "Sitemap:") {
+		t.Error("Expected robots.txt to contain 'Sitemap:'")
+	}
+	if ct := w.Header().Get("Content-Type"); !strings.Contains(ct, "text/plain") {
+		t.Errorf("Expected Content-Type text/plain, got %s", ct)
+	}
+}
+
+func TestHandleSitemap(t *testing.T) {
+	h := setupTestHandler(t)
+	req := httptest.NewRequest("GET", "/sitemap.xml", nil)
+	w := httptest.NewRecorder()
+
+	h.HandleSitemap(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected 200, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "<urlset") {
+		t.Error("Expected sitemap to contain '<urlset'")
+	}
+	if !strings.Contains(body, "sftrails.com") {
+		t.Error("Expected sitemap to contain 'sftrails.com'")
+	}
+	if ct := w.Header().Get("Content-Type"); !strings.Contains(ct, "application/xml") {
+		t.Errorf("Expected Content-Type application/xml, got %s", ct)
+	}
+}
+
+func TestHandleIndexSEO(t *testing.T) {
+	h := setupTestHandler(t)
+	req := httptest.NewRequest("GET", "/", nil)
+	w := httptest.NewRecorder()
+
+	h.HandleIndex(w, req)
+
+	body := w.Body.String()
+	if !strings.Contains(body, `<meta name="description"`) {
+		t.Error("Expected meta description tag")
+	}
+	if !strings.Contains(body, `og:title`) {
+		t.Error("Expected Open Graph title meta tag")
+	}
+	if !strings.Contains(body, `twitter:card`) {
+		t.Error("Expected Twitter Card meta tag")
+	}
+	if !strings.Contains(body, `application/ld+json`) {
+		t.Error("Expected JSON-LD structured data")
+	}
+	if !strings.Contains(body, `rel="canonical"`) {
+		t.Error("Expected canonical link tag")
+	}
+}
+
+func TestHandleAPITrails(t *testing.T) {
+	h := setupTestHandler(t)
+	req := httptest.NewRequest("GET", "/api/trails", nil)
+	w := httptest.NewRecorder()
+
+	h.HandleAPITrails(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected 200, got %d", w.Code)
+	}
+
+	ct := w.Header().Get("Content-Type")
+	if !strings.Contains(ct, "application/json") {
+		t.Errorf("Expected JSON content type, got %s", ct)
+	}
+
+	var resp models.TrailsAPIResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	if len(resp.Trails) == 0 {
+		t.Error("Expected trails in response")
+	}
+
+	if resp.GeneratedAt == "" {
+		t.Error("Expected generated_at timestamp")
+	}
+
+	found := false
+	for _, trail := range resp.Trails {
+		if trail.Name == "Markham Park" {
+			found = true
+			if trail.City != "Sunrise" {
+				t.Errorf("Expected city 'Sunrise', got '%s'", trail.City)
+			}
+			if trail.Latitude == 0 || trail.Longitude == 0 {
+				t.Error("Expected non-zero coordinates")
+			}
+			break
+		}
+	}
+	if !found {
+		t.Error("Expected to find 'Markham Park' in trails")
+	}
+}
+
+func TestHandleAPITrailSingle(t *testing.T) {
+	h := setupTestHandler(t)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/trails/{id}", h.HandleAPITrail)
+
+	req := httptest.NewRequest("GET", "/api/trails/1", nil)
+	w := httptest.NewRecorder()
+
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected 200, got %d", w.Code)
+	}
+
+	var trail models.TrailAPIResponse
+	if err := json.NewDecoder(w.Body).Decode(&trail); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	if trail.Name != "Markham Park" {
+		t.Errorf("Expected 'Markham Park', got '%s'", trail.Name)
+	}
+}
+
+func TestHandleAPITrailNotFound(t *testing.T) {
+	h := setupTestHandler(t)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/trails/{id}", h.HandleAPITrail)
+
+	req := httptest.NewRequest("GET", "/api/trails/99999", nil)
+	w := httptest.NewRecorder()
+
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("Expected 404, got %d", w.Code)
+	}
+}
+
+func TestHandleAPITrailInvalidID(t *testing.T) {
+	h := setupTestHandler(t)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/trails/{id}", h.HandleAPITrail)
+
+	req := httptest.NewRequest("GET", "/api/trails/abc", nil)
+	w := httptest.NewRecorder()
+
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected 400, got %d", w.Code)
+	}
+}
+
+func TestRobotsTxtAICrawlers(t *testing.T) {
+	h := setupTestHandler(t)
+	req := httptest.NewRequest("GET", "/robots.txt", nil)
+	w := httptest.NewRecorder()
+
+	h.HandleRobotsTxt(w, req)
+
+	body := w.Body.String()
+	crawlers := []string{"GPTBot", "ClaudeBot", "Claude-SearchBot", "PerplexityBot", "ChatGPT-User", "Google-Extended", "Applebot-Extended", "Amazonbot"}
+	for _, crawler := range crawlers {
+		if !strings.Contains(body, crawler) {
+			t.Errorf("Expected robots.txt to contain AI crawler directive for %s", crawler)
+		}
+	}
+	if !strings.Contains(body, "/api/") {
+		t.Error("Expected robots.txt to allow /api/")
+	}
+	if !strings.Contains(body, "llms.txt") {
+		t.Error("Expected robots.txt to reference llms.txt")
 	}
 }
 

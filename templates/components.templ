@@ -18,7 +18,7 @@ templ StatusBar(trail models.TrailWithStatus) {
 }
 
 templ TrailCard(trail models.TrailWithStatus) {
-	<div id={ fmt.Sprintf("trail-%d", trail.ID) } class="trail-card bg-white rounded-xl shadow p-5 mb-4">
+	<article id={ fmt.Sprintf("trail-%d", trail.ID) } class="trail-card bg-white rounded-xl shadow p-5 mb-4">
 		<div class="flex items-start justify-between mb-1">
 			<div class="min-w-0 flex-1 mr-3">
 				<h2 class="text-lg font-bold text-gray-900 leading-tight">{ trail.Name }</h2>
@@ -38,7 +38,7 @@ templ TrailCard(trail models.TrailWithStatus) {
 				<input type="hidden" name="trail_id" value={ fmt.Sprintf("%d", trail.ID) }/>
 				<input type="hidden" name="vote" value="open"/>
 				<input type="hidden" name="fingerprint" value=""/>
-				<button type="submit" class="w-full py-3 bg-green-600 text-white rounded-lg active:bg-green-800 font-semibold text-sm">
+				<button type="submit" aria-label={ fmt.Sprintf("Vote %s as rideable", trail.Name) } class="w-full py-3 bg-green-600 text-white rounded-lg active:bg-green-800 font-semibold text-sm">
 					Rideable 🟢
 				</button>
 			</form>
@@ -46,12 +46,12 @@ templ TrailCard(trail models.TrailWithStatus) {
 				<input type="hidden" name="trail_id" value={ fmt.Sprintf("%d", trail.ID) }/>
 				<input type="hidden" name="vote" value="closed"/>
 				<input type="hidden" name="fingerprint" value=""/>
-				<button type="submit" class="w-full py-3 bg-red-600 text-white rounded-lg active:bg-red-800 font-semibold text-sm">
+				<button type="submit" aria-label={ fmt.Sprintf("Vote %s as closed", trail.Name) } class="w-full py-3 bg-red-600 text-white rounded-lg active:bg-red-800 font-semibold text-sm">
 					Closed 🔴
 				</button>
 			</form>
 		</div>
-	</div>
+	</article>
 }
 
 templ StatusBadge(status models.TrailStatus) {

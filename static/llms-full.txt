@@ -1,0 +1,138 @@
+# SF Trails - Complete Documentation
+
+> Community-driven South Florida mountain bike trail status tracker
+
+## Overview
+
+SF Trails is a web application that provides real-time, community-reported trail status information for mountain bike trails in South Florida. The platform relies on crowd-sourced votes from riders to determine whether trails are currently rideable or closed (typically due to rain, flooding, or maintenance).
+
+## How Status Is Determined
+
+Trail status uses a tiered voting system:
+1. First, votes from the last 4 hours are checked. If there are 3 or more votes, status is determined by majority.
+2. If fewer than 3 votes in the last 4 hours, votes from the last 12 hours are used instead.
+3. If fewer than 3 votes in 12 hours, status shows as "unknown".
+4. All votes are reset daily at midnight.
+
+Status values:
+- **open** - More "rideable" votes than "closed" votes (trail is likely rideable)
+- **closed** - More "closed" votes than "rideable" votes (trail is likely not rideable)
+- **unknown** - Insufficient votes to determine status
+
+## Trails
+
+### Markham Park
+- **City:** Sunrise, FL
+- **Description:** Technical singletrack with rock gardens and log features
+- **Coordinates:** 26.1256, -80.3584
+
+### Oleta River State Park
+- **City:** North Miami Beach, FL
+- **Description:** Flowy trails through mangroves with bay views
+- **Coordinates:** 25.9207, -80.1412
+
+### Virginia Key
+- **City:** Key Biscayne, FL
+- **Description:** Tight singletrack through coastal hardwood hammock
+- **Coordinates:** 25.7380, -80.1526
+
+### Quiet Waters Park
+- **City:** Deerfield Beach, FL
+- **Description:** Beginner-friendly flat trails with fun features
+- **Coordinates:** 26.3048, -80.1268
+
+### Halpatiokee Regional Park
+- **City:** Stuart, FL
+- **Description:** Natural terrain trails through pine flatwoods
+- **Coordinates:** 27.1312, -80.4062
+
+### Amelia Earhart Park
+- **City:** Hialeah, FL
+- **Description:** Short but fun loops with tabletops and berms
+- **Coordinates:** 25.9223, -80.2917
+
+### Jonathan Dickinson State Park
+- **City:** Hobe Sound, FL
+- **Description:** Sandy singletrack through scrub and pine forest
+- **Coordinates:** 27.0184, -80.1125
+
+### Riverbend Park
+- **City:** Jupiter, FL
+- **Description:** Flowy trails along the Loxahatchee River
+- **Coordinates:** 26.9518, -80.1605
+
+### Dyer Park
+- **City:** West Palm Beach, FL
+- **Description:** Fast and flowy with nice elevation changes
+- **Coordinates:** 26.6358, -80.1530
+
+### Pinehurst Park
+- **City:** Greenacres, FL
+- **Description:** Compact trail system with good mix of terrain
+- **Coordinates:** 26.6174, -80.1586
+
+### West Delray Regional Park
+- **City:** Delray Beach, FL
+- **Description:** Well-maintained trails with progressive features
+- **Coordinates:** 26.4472, -80.1516
+
+### Tree Tops Park
+- **City:** Davie, FL
+- **Description:** Shaded trails through tropical hardwood hammock
+- **Coordinates:** 26.0585, -80.2706
+
+## API
+
+### GET /api/trails
+
+Returns all trails with current status as JSON.
+
+**Response format:**
+```json
+{
+  "trails": [
+    {
+      "id": 1,
+      "name": "Markham Park",
+      "location": "Sunrise",
+      "city": "Sunrise",
+      "description": "Technical singletrack with rock gardens and log features",
+      "latitude": 26.1256,
+      "longitude": -80.3584,
+      "status": "open",
+      "open_votes": 5,
+      "closed_votes": 2,
+      "total_votes": 7
+    }
+  ],
+  "generated_at": "2026-02-16T12:00:00Z"
+}
+```
+
+**Status values:** "open", "closed", "unknown"
+
+### GET /api/trails/{id}
+
+Returns a single trail with current status as JSON.
+
+**Response format:**
+```json
+{
+  "id": 1,
+  "name": "Markham Park",
+  "location": "Sunrise",
+  "city": "Sunrise",
+  "description": "Technical singletrack with rock gardens and log features",
+  "latitude": 26.1256,
+  "longitude": -80.3584,
+  "status": "open",
+  "open_votes": 5,
+  "closed_votes": 2,
+  "total_votes": 7
+}
+```
+
+## Website
+
+- **Homepage:** Displays all trails with current status, vote buttons, and auto-refresh every 60 seconds
+- **Technology:** Go backend with HTMX frontend, SQLite database

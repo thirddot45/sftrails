@@ -52,6 +52,16 @@ func main() {
 	mux.HandleFunc("GET /{$}", h.HandleIndex)
 	mux.HandleFunc("GET /trails-list", h.HandleTrailsList)
 	mux.Handle("POST /vote", rl.Middleware(http.HandlerFunc(h.HandleVote)))
+	mux.HandleFunc("GET /robots.txt", h.HandleRobotsTxt)
+	mux.HandleFunc("GET /sitemap.xml", h.HandleSitemap)
+	mux.HandleFunc("GET /api/trails", h.HandleAPITrails)
+	mux.HandleFunc("GET /api/trails/{id}", h.HandleAPITrail)
+	mux.HandleFunc("GET /llms.txt", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "./static/llms.txt")
+	})
+	mux.HandleFunc("GET /llms-full.txt", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "./static/llms-full.txt")
+	})
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
 
 	server := &http.Server{
