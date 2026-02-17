@@ -1,3 +1,5 @@
+//go:build postgres
+
 package db
 
 import (
@@ -9,24 +11,24 @@ import (
 func RunMigrations(ctx context.Context, db *sql.DB) error {
 	schema := `
 	CREATE TABLE IF NOT EXISTS trails (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		id SERIAL PRIMARY KEY,
 		name TEXT NOT NULL,
 		location TEXT NOT NULL DEFAULT '',
 		city TEXT NOT NULL DEFAULT '',
 		description TEXT NOT NULL DEFAULT '',
-		latitude REAL NOT NULL DEFAULT 0,
-		longitude REAL NOT NULL DEFAULT 0,
-		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		latitude DOUBLE PRECISION NOT NULL DEFAULT 0,
+		longitude DOUBLE PRECISION NOT NULL DEFAULT 0,
+		created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 
 	CREATE TABLE IF NOT EXISTS votes (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		id SERIAL PRIMARY KEY,
 		trail_id INTEGER NOT NULL REFERENCES trails(id),
 		vote TEXT NOT NULL CHECK(vote IN ('open', 'closed')),
 		ip_address TEXT NOT NULL DEFAULT '',
 		fingerprint TEXT NOT NULL DEFAULT '',
-		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 
 	CREATE INDEX IF NOT EXISTS idx_votes_trail_created ON votes(trail_id, created_at DESC);

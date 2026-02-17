@@ -8,7 +8,7 @@ RUN go mod download
 
 COPY . .
 RUN templ generate
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /sftrails .
+RUN CGO_ENABLED=0 go build -tags postgres -ldflags="-s -w" -o /sftrails .
 
 FROM scratch
 

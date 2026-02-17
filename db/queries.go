@@ -46,26 +46,26 @@ const statusColumns = `
 
 // voteSubquery returns a single LEFT JOIN that computes both 4h and 12h
 // vote windows in one pass over the votes table (filtered to 12h).
-// When filtered is true, the subquery includes a WHERE trail_id = ? placeholder.
+// When filtered is true, the subquery includes a WHERE trail_id placeholder.
 func voteSubquery(filtered bool) string {
 	where := ""
 	if filtered {
-		where = "trail_id = ? AND "
+		where = "trail_id = " + ph(1) + " AND "
 	}
 	return fmt.Sprintf(`
 	LEFT JOIN (
 		SELECT
 			trail_id,
-			SUM(CASE WHEN vote = 'open' AND created_at >= datetime('now', '-4 hours') THEN 1 ELSE 0 END) AS open_4h,
-			SUM(CASE WHEN vote = 'closed' AND created_at >= datetime('now', '-4 hours') THEN 1 ELSE 0 END) AS closed_4h,
-			SUM(CASE WHEN created_at >= datetime('now', '-4 hours') THEN 1 ELSE 0 END) AS total_4h,
+			SUM(CASE WHEN vote = 'open' AND created_at >= %s THEN 1 ELSE 0 END) AS open_4h,
+			SUM(CASE WHEN vote = 'closed' AND created_at >= %s THEN 1 ELSE 0 END) AS closed_4h,
+			SUM(CASE WHEN created_at >= %s THEN 1 ELSE 0 END) AS total_4h,
 			SUM(CASE WHEN vote = 'open' THEN 1 ELSE 0 END) AS open_12h,
 			SUM(CASE WHEN vote = 'closed' THEN 1 ELSE 0 END) AS closed_12h,
 			COUNT(*) AS total_12h
 		FROM votes
-		WHERE %screated_at >= datetime('now', '-12 hours')
+		WHERE %screated_at >= %s
 		GROUP BY trail_id
-	) v ON t.id = v.trail_id`, where)
+	) v ON t.id = v.trail_id`, datetimeAge(4), datetimeAge(4), datetimeAge(4), where, datetimeAge(12))
 }
 
 func scanTrail(scanner interface{ Scan(dest ...any) error }) (models.TrailWithStatus, error) {
@@ -120,7 +120,7 @@ func GetTrailWithStatus(ctx context.Context, db *sql.DB, trailID int64) (*models
 		statusColumns + `
 	FROM trails t` +
 		voteSubquery(true) + `
-	WHERE t.id = ?`
+	WHERE t.id = ` + ph(2)
 
 	t, err := scanTrail(db.QueryRowContext(ctx, query, trailID, trailID))
 	if errors.Is(err, sql.ErrNoRows) {
@@ -141,7 +141,7 @@ func CastVote(ctx context.Context, db *sql.DB, trailID int64, vote models.VoteTy
 		return nil
 	}
 	_, err = db.ExecContext(ctx,
-		`INSERT INTO votes (trail_id, vote, ip_address, fingerprint) VALUES (?, ?, ?, ?)`,
+		`INSERT INTO votes (trail_id, vote, ip_address, fingerprint) VALUES (`+placeholders(4)+`)`,
 		trailID, string(vote), ip, fingerprint,
 	)
 	if err != nil {
@@ -161,7 +161,7 @@ func ResetVotes(ctx context.Context, db *sql.DB) (int64, error) {
 func HasRecentVote(ctx context.Context, db *sql.DB, trailID int64, ip string, fingerprint string) (bool, error) {
 	var exists bool
 	err := db.QueryRowContext(ctx,
-		`SELECT EXISTS(SELECT 1 FROM votes WHERE trail_id = ? AND ip_address = ? AND fingerprint = ? AND created_at >= datetime('now', '-1 hour') LIMIT 1)`,
+		`SELECT EXISTS(SELECT 1 FROM votes WHERE trail_id = `+ph(1)+` AND ip_address = `+ph(2)+` AND fingerprint = `+ph(3)+` AND created_at >= `+datetimeAge(1)+` LIMIT 1)`,
 		trailID, ip, fingerprint,
 	).Scan(&exists)
 	if err != nil {

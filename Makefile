@@ -1,9 +1,12 @@
 export PATH := $(PATH):/usr/local/go/bin:$(HOME)/go/bin
 
-.PHONY: build run test generate clean docker docker-run
+.PHONY: build build-postgres run test generate clean docker docker-run
 
 build: generate
 	go build -o sftrails .
+
+build-postgres: generate
+	go build -tags postgres -o sftrails .
 
 run: build
 	./sftrails

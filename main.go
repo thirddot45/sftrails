@@ -35,11 +35,14 @@ func startVoteResetScheduler(ctx context.Context, database *sql.DB) {
 }
 
 func main() {
-	dbPath := os.Getenv("DB_PATH")
-	if dbPath == "" {
-		dbPath = "./sftrails.db"
+	dbDSN := os.Getenv("DATABASE_URL")
+	if dbDSN == "" {
+		dbDSN = os.Getenv("DB_PATH")
+		if dbDSN == "" {
+			dbDSN = "./sftrails.db"
+		}
 	}
-	database, err := db.Open(dbPath)
+	database, err := db.Open(dbDSN)
 	if err != nil {
 		slog.Error("failed to open database", "error", err)
 		os.Exit(1)

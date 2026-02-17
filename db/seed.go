@@ -39,7 +39,7 @@ func SeedTrails(ctx context.Context, db *sql.DB) error {
 	}
 	defer tx.Rollback()
 
-	stmt, err := tx.PrepareContext(ctx, `INSERT INTO trails (name, location, city, description, latitude, longitude) VALUES (?, ?, ?, ?, ?, ?)`)
+	stmt, err := tx.PrepareContext(ctx, `INSERT INTO trails (name, location, city, description, latitude, longitude) VALUES (`+placeholders(6)+`)`)
 	if err != nil {
 		return fmt.Errorf("prepare insert: %w", err)
 	}
