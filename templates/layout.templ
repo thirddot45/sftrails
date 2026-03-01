@@ -20,7 +20,7 @@ templ Layout(title string, description string) {
 		<meta name="twitter:card" content="summary"/>
 		<meta name="twitter:title" content={ title }/>
 		<meta name="twitter:description" content={ description }/>
-		<meta name="theme-color" content="#166534"/>
+		<meta name="theme-color" content="#111827"/>
 		<script type="application/ld+json">
 		{
 			"@context": "https://schema.org",
@@ -53,30 +53,30 @@ templ Layout(title string, description string) {
 		<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2/dist/tailwind.min.css" rel="stylesheet"/>
 		<script src="/static/fingerprint.js" defer></script>
 		<style>
-			body { background-color: #fdf6e3; }
+			body { background-color: #111827; }
 			.trail-card { transition: all 0.2s ease; }
 			@media (hover: hover) {
-				.trail-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+				.trail-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
 			}
 			button { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 			.status-bar { height: 0.75rem; border-radius: 9999px; width: 100%; transition: background-color 0.5s ease; }
-			.status-bar.bar-none { background-color: white; border: 1px solid #e5e7eb; }
+			.status-bar.bar-none { background-color: #1f2937; border: 1px solid #374151; }
 			.status-bar.bar-open { background-color: #22c55e; }
 			.status-bar.bar-closed { background-color: #ef4444; }
 			.status-bar.bar-mixed { background-color: #f59e0b; }
 		</style>
 	</head>
 	<body class="min-h-screen">
-		<header class="bg-green-800 text-white py-6 shadow-lg">
+		<header class="bg-gray-900 border-b border-gray-700 text-white py-6 shadow-lg">
 			<div class="max-w-4xl mx-auto px-4">
 				<h1 class="text-3xl font-bold">SF Trails</h1>
-				<p class="text-green-200 mt-1">South Florida Mountain Bike Trail Status</p>
+				<p class="text-gray-400 mt-1">South Florida Mountain Bike Trail Status</p>
 			</div>
 		</header>
 		<main class="max-w-4xl mx-auto px-4 py-8">
 			{ children... }
 		</main>
-		<footer class="bg-green-900 text-green-300 py-6 mt-12">
+		<footer class="bg-gray-900 text-gray-500 border-t border-gray-700 py-6 mt-12">
 			<div class="max-w-4xl mx-auto px-4 text-center text-sm">
 				<p>Community-driven trail status reports. Vote to help fellow riders!</p>
 			</div>

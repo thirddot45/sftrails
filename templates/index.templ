@@ -57,7 +57,7 @@ templ IndexPage(trails []models.TrailWithStatus) {
 	@Layout("SF Trails - South Florida Mountain Bike Trail Status", "Check real-time trail conditions for South Florida mountain bike trails. Community-driven status reports for Markham Park, Oleta River, Virginia Key, and more.") {
 		@templ.Raw(trailsJSONLDScript(trails))
 		<section aria-label="Trail status instructions" class="mb-6">
-			<p class="text-gray-700">Click <strong>Rideable</strong> or <strong>Closed</strong> to report current trail conditions. Status updates every 60 seconds.</p>
+			<p class="text-gray-300">Click <strong>Rideable</strong> or <strong>Closed</strong> to report current trail conditions. Status updates every 60 seconds.</p>
 		</section>
 		<section aria-label="Trail listings">
 			@TrailsList(trails)
