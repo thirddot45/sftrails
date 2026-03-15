@@ -158,8 +158,8 @@ func TestHandleRobotsTxt(t *testing.T) {
 	if !strings.Contains(body, "User-agent: *") {
 		t.Error("Expected robots.txt to contain 'User-agent: *'")
 	}
-	if !strings.Contains(body, "Sitemap:") {
-		t.Error("Expected robots.txt to contain 'Sitemap:'")
+	if !strings.Contains(body, "Sitemap: https://sftrails.info/sitemap.xml") {
+		t.Error("Expected robots.txt to contain absolute sitemap URL")
 	}
 	if ct := w.Header().Get("Content-Type"); !strings.Contains(ct, "text/plain") {
 		t.Errorf("Expected Content-Type text/plain, got %s", ct)
@@ -202,14 +202,38 @@ func TestHandleIndexSEO(t *testing.T) {
 	if !strings.Contains(body, `og:title`) {
 		t.Error("Expected Open Graph title meta tag")
 	}
+	if !strings.Contains(body, `og:image`) {
+		t.Error("Expected Open Graph image meta tag")
+	}
 	if !strings.Contains(body, `twitter:card`) {
 		t.Error("Expected Twitter Card meta tag")
+	}
+	if !strings.Contains(body, `summary_large_image`) {
+		t.Error("Expected twitter:card to be summary_large_image")
+	}
+	if !strings.Contains(body, `twitter:image`) {
+		t.Error("Expected Twitter image meta tag")
 	}
 	if !strings.Contains(body, `application/ld+json`) {
 		t.Error("Expected JSON-LD structured data")
 	}
 	if !strings.Contains(body, `rel="canonical"`) {
 		t.Error("Expected canonical link tag")
+	}
+	if !strings.Contains(body, `geo.region`) {
+		t.Error("Expected geo.region meta tag")
+	}
+	if !strings.Contains(body, `robots`) {
+		t.Error("Expected robots meta tag")
+	}
+	if !strings.Contains(body, `ItemList`) {
+		t.Error("Expected ItemList structured data")
+	}
+	if !strings.Contains(body, `favicon`) {
+		t.Error("Expected favicon link tag")
+	}
+	if !strings.Contains(body, `preconnect`) {
+		t.Error("Expected preconnect resource hint")
 	}
 }
 

@@ -3,8 +3,10 @@ Allow: /
 Allow: /api/
 Allow: /llms.txt
 Allow: /llms-full.txt
+Disallow: /vote
+Disallow: /trails-list
 
-Sitemap: /sitemap.xml
+Sitemap: https://sftrails.info/sitemap.xml
 
 # AI Crawlers
 User-agent: GPTBot

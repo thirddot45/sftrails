@@ -156,7 +156,7 @@ Allow: /llms-full.txt
 Disallow: /vote
 Disallow: /trails-list
 
-Sitemap: /sitemap.xml
+Sitemap: https://sftrails.info/sitemap.xml
 
 User-agent: GPTBot
 Allow: /
@@ -201,5 +201,11 @@ func (h *Handler) HandleSitemap(w http.ResponseWriter, r *http.Request) {
     <changefreq>hourly</changefreq>
     <priority>1.0</priority>
   </url>
-</urlset>`, lastmod)
+  <url>
+    <loc>https://sftrails.info/api/trails</loc>
+    <lastmod>%s</lastmod>
+    <changefreq>hourly</changefreq>
+    <priority>0.8</priority>
+  </url>
+</urlset>`, lastmod, lastmod)
 }

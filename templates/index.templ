@@ -8,7 +8,8 @@ import (
 
 func trailsJSONLD(trails []models.TrailWithStatus) string {
 	var items []string
-	for _, t := range trails {
+	var listItems []string
+	for i, t := range trails {
 		status := "Unknown"
 		if t.Status == models.StatusOpen {
 			status = "Open"
@@ -38,15 +39,30 @@ func trailsJSONLD(trails []models.TrailWithStatus) string {
 			}
 		}`, t.Name, t.Description, t.City, t.Latitude, t.Longitude, status)
 		items = append(items, item)
+
+		listItem := fmt.Sprintf(`{
+			"@type": "ListItem",
+			"position": %d,
+			"name": %q,
+			"url": "https://sftrails.info/#trail-%d"
+		}`, i+1, t.Name, t.ID)
+		listItems = append(listItems, listItem)
 	}
-	return fmt.Sprintf(`{
+	return fmt.Sprintf(`[{
 		"@context": "https://schema.org",
 		"@type": "WebSite",
 		"name": "SF Trails",
 		"url": "https://sftrails.info",
 		"description": "Community-driven South Florida mountain bike trail status reports",
 		"hasPart": [%s]
-	}`, strings.Join(items, ","))
+	},{
+		"@context": "https://schema.org",
+		"@type": "ItemList",
+		"name": "South Florida Mountain Bike Trails",
+		"description": "Real-time trail conditions for South Florida mountain bike trails",
+		"numberOfItems": %d,
+		"itemListElement": [%s]
+	}]`, strings.Join(items, ","), len(trails), strings.Join(listItems, ","))
 }
 
 func trailsJSONLDScript(trails []models.TrailWithStatus) string {
