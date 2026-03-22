@@ -5,49 +5,101 @@ import (
 	"sftrails/models"
 )
 
-templ StatusBar(trail models.TrailWithStatus) {
+func openPercent(trail models.TrailWithStatus) int {
 	if trail.TotalVotes == 0 {
-		<div class="status-bar bar-none mt-2"></div>
-	} else if trail.OpenVotes > trail.ClosedVotes {
-		<div class="status-bar bar-open mt-2"></div>
-	} else if trail.ClosedVotes > trail.OpenVotes {
-		<div class="status-bar bar-closed mt-2"></div>
-	} else {
-		<div class="status-bar bar-mixed mt-2"></div>
+		return 0
 	}
+	return int(float64(trail.OpenVotes) / float64(trail.TotalVotes) * 100)
+}
+
+func closedPercent(trail models.TrailWithStatus) int {
+	if trail.TotalVotes == 0 {
+		return 0
+	}
+	return int(float64(trail.ClosedVotes) / float64(trail.TotalVotes) * 100)
+}
+
+templ StatusBar(trail models.TrailWithStatus) {
+	<div class="mt-3 space-y-1.5">
+		<div class="status-bar-track">
+			if trail.TotalVotes == 0 {
+				<!-- Empty bar -->
+			} else if trail.OpenVotes >= trail.ClosedVotes {
+				<div class={ "status-bar-fill fill-open" } style={ fmt.Sprintf("width: %d%%", openPercent(trail)) }></div>
+			} else {
+				<div class={ "status-bar-fill fill-closed" } style={ fmt.Sprintf("width: %d%%", closedPercent(trail)) }></div>
+			}
+		</div>
+		if trail.TotalVotes > 0 {
+			<div class="flex justify-between text-[10px] text-gray-500">
+				<span>{ fmt.Sprintf("%d rideable", trail.OpenVotes) }</span>
+				<span>{ fmt.Sprintf("%d closed", trail.ClosedVotes) }</span>
+			</div>
+		} else {
+			<p class="text-[10px] text-gray-600 text-center">No reports yet — be the first!</p>
+		}
+	</div>
 }
 
 templ TrailCard(trail models.TrailWithStatus) {
-	<article id={ fmt.Sprintf("trail-%d", trail.ID) } class="trail-card bg-gray-800 rounded-xl shadow p-5 mb-4">
-		<div class="flex items-start justify-between mb-1">
-			<div class="min-w-0 flex-1 mr-3">
-				<h2 class="text-lg font-bold text-white leading-tight">{ trail.Name }</h2>
-				<p class="text-sm text-gray-400">{ trail.City }</p>
+	<article
+		id={ fmt.Sprintf("trail-%d", trail.ID) }
+		data-name={ trail.Name }
+		data-city={ trail.City }
+		data-status={ string(trail.Status) }
+		class="trail-card rounded-2xl p-5"
+	>
+		<!-- Header row -->
+		<div class="flex items-start justify-between gap-3 mb-2">
+			<div class="min-w-0 flex-1">
+				<h2 class="text-base font-bold text-white leading-snug tracking-tight">{ trail.Name }</h2>
+				<div class="flex items-center gap-1.5 mt-0.5">
+					<svg class="w-3 h-3 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+					</svg>
+					<span class="text-xs text-gray-500">{ trail.City }</span>
+				</div>
 			</div>
-			<div class="flex items-center gap-2 flex-shrink-0">
-				if trail.TotalVotes > 0 {
-					<span class="text-xs text-gray-400">{ fmt.Sprintf("%d/%d", trail.OpenVotes, trail.ClosedVotes) }</span>
-				}
-				@StatusBadge(trail.Status)
-			</div>
+			@StatusBadge(trail.Status)
 		</div>
-		<p class="text-sm text-gray-400 mb-3">{ trail.Description }</p>
+
+		<!-- Description -->
+		<p class="text-xs text-gray-400 leading-relaxed mb-1">{ trail.Description }</p>
+
+		<!-- Status Bar -->
 		@StatusBar(trail)
-		<div class="grid grid-cols-2 gap-3 mt-3">
+
+		<!-- Vote Buttons -->
+		<div class="grid grid-cols-2 gap-2.5 mt-4">
 			<form hx-post="/vote" hx-target={ fmt.Sprintf("#trail-%d", trail.ID) } hx-swap="outerHTML">
 				<input type="hidden" name="trail_id" value={ fmt.Sprintf("%d", trail.ID) }/>
 				<input type="hidden" name="vote" value="open"/>
 				<input type="hidden" name="fingerprint" value=""/>
-				<button type="submit" aria-label={ fmt.Sprintf("Vote %s as rideable", trail.Name) } class="w-full py-3 bg-green-600 text-white rounded-lg active:bg-green-800 font-semibold text-sm">
-					Rideable 🟢
+				<button
+					type="submit"
+					aria-label={ fmt.Sprintf("Vote %s as rideable", trail.Name) }
+					class="vote-btn w-full py-2.5 bg-emerald-600/80 hover:bg-emerald-600 text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-1.5 border border-emerald-500/20"
+				>
+					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+					</svg>
+					Rideable
 				</button>
 			</form>
 			<form hx-post="/vote" hx-target={ fmt.Sprintf("#trail-%d", trail.ID) } hx-swap="outerHTML">
 				<input type="hidden" name="trail_id" value={ fmt.Sprintf("%d", trail.ID) }/>
 				<input type="hidden" name="vote" value="closed"/>
 				<input type="hidden" name="fingerprint" value=""/>
-				<button type="submit" aria-label={ fmt.Sprintf("Vote %s as closed", trail.Name) } class="w-full py-3 bg-red-600 text-white rounded-lg active:bg-red-800 font-semibold text-sm">
-					Closed 🔴
+				<button
+					type="submit"
+					aria-label={ fmt.Sprintf("Vote %s as closed", trail.Name) }
+					class="vote-btn w-full py-2.5 bg-red-600/80 hover:bg-red-600 text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-1.5 border border-red-500/20"
+				>
+					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+					</svg>
+					Closed
 				</button>
 			</form>
 		</div>
@@ -56,10 +108,22 @@ templ TrailCard(trail models.TrailWithStatus) {
 
 templ StatusBadge(status models.TrailStatus) {
 	if status == models.StatusOpen {
-		<span class="flex-shrink-0 px-3 py-1 rounded-full text-sm font-semibold bg-green-500 text-white">Open</span>
+		<span class="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
+			<span class="relative flex h-1.5 w-1.5">
+				<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+				<span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
+			</span>
+			Open
+		</span>
 	} else if status == models.StatusClosed {
-		<span class="flex-shrink-0 px-3 py-1 rounded-full text-sm font-semibold bg-red-500 text-white">Closed</span>
+		<span class="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-500/15 text-red-400 border border-red-500/20">
+			<span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+			Closed
+		</span>
 	} else {
-		<span class="flex-shrink-0 px-3 py-1 rounded-full text-sm font-semibold bg-gray-400 text-white">Unknown</span>
+		<span class="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-500/15 text-gray-400 border border-gray-500/20">
+			<span class="w-1.5 h-1.5 rounded-full bg-gray-500"></span>
+			Unknown
+		</span>
 	}
 }
