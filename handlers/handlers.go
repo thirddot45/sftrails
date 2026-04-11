@@ -12,14 +12,32 @@ import (
 	"sftrails/db"
 	"sftrails/models"
 	"sftrails/templates"
+	"sftrails/weather"
 )
 
 type Handler struct {
-	db *sql.DB
+	db      *sql.DB
+	weather *weather.Store
 }
 
-func NewHandler(database *sql.DB) *Handler {
-	return &Handler{db: database}
+func NewHandler(database *sql.DB, ws *weather.Store) *Handler {
+	return &Handler{db: database, weather: ws}
+}
+
+// attachWeather populates weather fields on each trail from the weather store.
+func (h *Handler) attachWeather(trails []models.TrailWithStatus) {
+	if h.weather == nil {
+		return
+	}
+	for i := range trails {
+		if f, ok := h.weather.Get(trails[i].ID); ok {
+			trails[i].HasWeather = true
+			trails[i].WeatherIcon = f.Icon
+			trails[i].WeatherDesc = f.Desc
+			trails[i].WeatherTempHighF = f.TempHighF
+			trails[i].WeatherRainPct = f.RainChance
+		}
+	}
 }
 
 func (h *Handler) HandleIndex(w http.ResponseWriter, r *http.Request) {
@@ -29,6 +47,7 @@ func (h *Handler) HandleIndex(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
+	h.attachWeather(trails)
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	if err := templates.IndexPage(trails).Render(r.Context(), w); err != nil {
 		slog.Error("failed to render index", "error", err)
@@ -42,6 +61,7 @@ func (h *Handler) HandleTrailsList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
+	h.attachWeather(trails)
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	if err := templates.TrailsList(trails).Render(r.Context(), w); err != nil {
 		slog.Error("failed to render trails list", "error", err)
@@ -88,6 +108,16 @@ func (h *Handler) HandleVote(w http.ResponseWriter, r *http.Request) {
 		slog.Error("failed to get trail after vote", "trail_id", trailID, "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
+	}
+
+	if h.weather != nil {
+		if f, ok := h.weather.Get(trail.ID); ok {
+			trail.HasWeather = true
+			trail.WeatherIcon = f.Icon
+			trail.WeatherDesc = f.Desc
+			trail.WeatherTempHighF = f.TempHighF
+			trail.WeatherRainPct = f.RainChance
+		}
 	}
 
 	if err := templates.TrailCard(*trail).Render(ctx, w); err != nil {

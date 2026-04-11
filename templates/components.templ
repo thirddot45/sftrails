@@ -32,6 +32,16 @@ templ TrailCard(trail models.TrailWithStatus) {
 			</div>
 		</div>
 		<p class="text-sm text-gray-400 mb-3">{ trail.Description }</p>
+		if trail.HasWeather {
+			<div class="flex items-center gap-1.5 text-sm text-gray-400 mb-2">
+				<span class="text-base">{ trail.WeatherIcon }</span>
+				<span>{ fmt.Sprintf("%.0f°F", trail.WeatherTempHighF) }</span>
+				<span class="text-gray-500">{ trail.WeatherDesc }</span>
+				if trail.WeatherRainPct > 0 {
+					<span class="text-blue-400">💧 { fmt.Sprintf("%d%%", trail.WeatherRainPct) }</span>
+				}
+			</div>
+		}
 		@StatusBar(trail)
 		<div class="grid grid-cols-2 gap-3 mt-3">
 			<form hx-post="/vote" hx-target={ fmt.Sprintf("#trail-%d", trail.ID) } hx-swap="outerHTML">
