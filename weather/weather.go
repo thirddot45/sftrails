@@ -27,9 +27,10 @@ type Location struct {
 
 // Store holds cached daily forecasts keyed by trail ID.
 type Store struct {
-	mu        sync.RWMutex
-	forecasts map[int64]Forecast
-	locations []Location
+	mu          sync.RWMutex
+	forecasts   map[int64]Forecast
+	locations   []Location
+	lastRefresh time.Time
 }
 
 // NewStore creates a weather store for the given trail locations.
@@ -70,8 +71,57 @@ func (s *Store) Refresh() {
 
 	s.mu.Lock()
 	s.forecasts = updated
+	s.lastRefresh = time.Now()
 	s.mu.Unlock()
 	slog.Info("weather refreshed", "trails", len(updated))
+}
+
+// Stats returns a snapshot of weather store state for diagnostics.
+func (s *Store) Stats() (cached, total int, lastRefresh time.Time) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.forecasts), len(s.locations), s.lastRefresh
+}
+
+// EndpointCheck is the result of a single outbound endpoint health check.
+type EndpointCheck struct {
+	Name    string
+	URL     string
+	OK      bool
+	Status  int
+	Latency time.Duration
+	Error   string
+}
+
+// CheckEndpoints runs lightweight health checks against outbound endpoints
+// the app depends on. It's safe to call from request handlers (short timeout).
+func CheckEndpoints() []EndpointCheck {
+	client := &http.Client{Timeout: 5 * time.Second}
+	checks := []struct{ name, url string }{
+		{
+			name: "Open-Meteo",
+			url:  "https://api.open-meteo.com/v1/forecast?latitude=26.12&longitude=-80.14&daily=weather_code&forecast_days=1&timezone=UTC",
+		},
+	}
+
+	results := make([]EndpointCheck, 0, len(checks))
+	for _, c := range checks {
+		start := time.Now()
+		resp, err := client.Get(c.url)
+		elapsed := time.Since(start)
+
+		r := EndpointCheck{Name: c.name, URL: c.url, Latency: elapsed}
+		if err != nil {
+			r.Error = err.Error()
+			results = append(results, r)
+			continue
+		}
+		resp.Body.Close()
+		r.Status = resp.StatusCode
+		r.OK = resp.StatusCode >= 200 && resp.StatusCode < 300
+		results = append(results, r)
+	}
+	return results
 }
 
 // StartScheduler fetches weather immediately, then refreshes once every 24 hours.

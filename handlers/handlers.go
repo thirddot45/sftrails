@@ -176,6 +176,23 @@ func (h *Handler) HandleAPITrail(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h *Handler) HandleStatus(w http.ResponseWriter, r *http.Request) {
+	data := templates.StatusData{
+		Endpoints: weather.CheckEndpoints(),
+	}
+	if h.weather != nil {
+		cached, total, refresh := h.weather.Stats()
+		data.WeatherCached = cached
+		data.WeatherTotal = total
+		data.WeatherRefresh = refresh
+		data.WeatherHasData = cached > 0
+	}
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	if err := templates.StatusPage(data).Render(r.Context(), w); err != nil {
+		slog.Error("failed to render status", "error", err)
+	}
+}
+
 func (h *Handler) HandleRobotsTxt(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	fmt.Fprint(w, `User-agent: *
