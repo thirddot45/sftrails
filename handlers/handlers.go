@@ -24,19 +24,29 @@ func NewHandler(database *sql.DB, ws *weather.Store) *Handler {
 	return &Handler{db: database, weather: ws}
 }
 
+// attachWeatherOne populates weather fields on a single trail from the store.
+func (h *Handler) attachWeatherOne(trail *models.TrailWithStatus) {
+	if h.weather == nil || trail == nil {
+		return
+	}
+	f, ok := h.weather.Get(trail.ID)
+	if !ok {
+		return
+	}
+	trail.HasWeather = true
+	trail.WeatherIcon = f.Icon
+	trail.WeatherDesc = f.Desc
+	trail.WeatherTempHighF = f.TempHighF
+	trail.WeatherRainPct = f.RainChance
+}
+
 // attachWeather populates weather fields on each trail from the weather store.
 func (h *Handler) attachWeather(trails []models.TrailWithStatus) {
 	if h.weather == nil {
 		return
 	}
 	for i := range trails {
-		if f, ok := h.weather.Get(trails[i].ID); ok {
-			trails[i].HasWeather = true
-			trails[i].WeatherIcon = f.Icon
-			trails[i].WeatherDesc = f.Desc
-			trails[i].WeatherTempHighF = f.TempHighF
-			trails[i].WeatherRainPct = f.RainChance
-		}
+		h.attachWeatherOne(&trails[i])
 	}
 }
 
@@ -117,17 +127,10 @@ func (h *Handler) HandleVote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if h.weather != nil {
-		if f, ok := h.weather.Get(trail.ID); ok {
-			trail.HasWeather = true
-			trail.WeatherIcon = f.Icon
-			trail.WeatherDesc = f.Desc
-			trail.WeatherTempHighF = f.TempHighF
-			trail.WeatherRainPct = f.RainChance
-		}
-	}
-
-	attachDistanceSingle(trail, ReadUserLocation(r))
+	h.attachWeatherOne(trail)
+	trails := []models.TrailWithStatus{*trail}
+	AttachDistanceAndSort(trails, ReadUserLocation(r))
+	*trail = trails[0]
 
 	if err := templates.TrailCard(*trail).Render(ctx, w); err != nil {
 		slog.Error("failed to render trail card", "trail_id", trailID, "error", err)
@@ -194,7 +197,6 @@ func (h *Handler) HandleStatus(w http.ResponseWriter, r *http.Request) {
 		data.WeatherCached = cached
 		data.WeatherTotal = total
 		data.WeatherRefresh = refresh
-		data.WeatherHasData = cached > 0
 	}
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	if err := templates.StatusPage(data).Render(r.Context(), w); err != nil {

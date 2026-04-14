@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -84,6 +85,8 @@ func (s *Store) Stats() (cached, total int, lastRefresh time.Time) {
 }
 
 // EndpointCheck is the result of a single outbound endpoint health check.
+// Error is a short error category ("timeout", "dns", "tls", "http"); raw
+// upstream errors are kept out of public responses to avoid info disclosure.
 type EndpointCheck struct {
 	Name    string
 	URL     string
@@ -93,14 +96,32 @@ type EndpointCheck struct {
 	Error   string
 }
 
+// checkCache rate-limits public /status calls to one outbound probe per TTL.
+var (
+	checkCacheMu   sync.Mutex
+	checkCacheData []EndpointCheck
+	checkCacheAt   time.Time
+	checkCacheTTL  = 60 * time.Second
+)
+
 // CheckEndpoints runs lightweight health checks against outbound endpoints
-// the app depends on. It's safe to call from request handlers (short timeout).
+// the app depends on. Results are cached for 60 seconds so repeated /status
+// requests can't amplify outbound traffic.
 func CheckEndpoints() []EndpointCheck {
+	checkCacheMu.Lock()
+	defer checkCacheMu.Unlock()
+
+	if checkCacheData != nil && time.Since(checkCacheAt) < checkCacheTTL {
+		out := make([]EndpointCheck, len(checkCacheData))
+		copy(out, checkCacheData)
+		return out
+	}
+
 	client := &http.Client{Timeout: 5 * time.Second}
 	checks := []struct{ name, url string }{
 		{
 			name: "Open-Meteo",
-			url:  "https://api.open-meteo.com/v1/forecast?latitude=26.12&longitude=-80.14&daily=weather_code&forecast_days=1&timezone=UTC",
+			url:  "https://api.open-meteo.com/v1/forecast?latitude=0&longitude=0&daily=weather_code&forecast_days=1&timezone=UTC",
 		},
 	}
 
@@ -112,16 +133,41 @@ func CheckEndpoints() []EndpointCheck {
 
 		r := EndpointCheck{Name: c.name, URL: c.url, Latency: elapsed}
 		if err != nil {
-			r.Error = err.Error()
+			r.Error = classifyErr(err)
 			results = append(results, r)
 			continue
 		}
 		resp.Body.Close()
 		r.Status = resp.StatusCode
 		r.OK = resp.StatusCode >= 200 && resp.StatusCode < 300
+		if !r.OK {
+			r.Error = "http"
+		}
 		results = append(results, r)
 	}
-	return results
+
+	checkCacheData = results
+	checkCacheAt = time.Now()
+	out := make([]EndpointCheck, len(results))
+	copy(out, results)
+	return out
+}
+
+// classifyErr maps a net/http error into a short, public-safe category.
+// We intentionally avoid returning raw error strings (which can leak
+// internal hostnames, proxy URLs, or cert chain details).
+func classifyErr(err error) string {
+	s := err.Error()
+	switch {
+	case strings.Contains(s, "context deadline exceeded"), strings.Contains(s, "Client.Timeout"), strings.Contains(s, "i/o timeout"):
+		return "timeout"
+	case strings.Contains(s, "no such host"), strings.Contains(s, "dns"):
+		return "dns"
+	case strings.Contains(s, "x509"), strings.Contains(s, "tls:"), strings.Contains(s, "certificate"):
+		return "tls"
+	default:
+		return "http"
+	}
 }
 
 // StartScheduler fetches weather immediately, then refreshes once every 24 hours.

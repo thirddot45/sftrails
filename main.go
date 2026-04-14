@@ -60,18 +60,22 @@ func main() {
 
 	go startVoteResetScheduler(ctx, database)
 
-	// Build weather store from trail locations and start daily refresh
-	trails, err := db.GetTrailsWithStatus(ctx, database)
-	if err != nil {
-		slog.Error("failed to load trails for weather", "error", err)
-		os.Exit(1)
+	// Build weather store from trail locations and start daily refresh.
+	// Weather is non-critical: if trail load fails we start without it
+	// rather than blocking app startup. The initial refresh runs inside
+	// StartScheduler's goroutine so slow outbound calls don't delay the
+	// HTTP listener.
+	var ws *weather.Store
+	if trails, err := db.GetTrailsWithStatus(ctx, database); err != nil {
+		slog.Warn("skipping weather: failed to load trails", "error", err)
+	} else {
+		locs := make([]weather.Location, len(trails))
+		for i, t := range trails {
+			locs[i] = weather.Location{TrailID: t.ID, Lat: t.Latitude, Lng: t.Longitude}
+		}
+		ws = weather.NewStore(locs)
+		go ws.StartScheduler(ctx)
 	}
-	locs := make([]weather.Location, len(trails))
-	for i, t := range trails {
-		locs[i] = weather.Location{TrailID: t.ID, Lat: t.Latitude, Lng: t.Longitude}
-	}
-	ws := weather.NewStore(locs)
-	go ws.StartScheduler(ctx)
 
 	h := handlers.NewHandler(database, ws)
 	rl := handlers.NewRateLimiter(30, time.Minute)
