@@ -5,6 +5,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -21,15 +22,22 @@ type UserLocation struct {
 }
 
 const (
-	locCookieName   = "sft_loc"
-	labelCookieName = "sft_loc_label"
+	locCookieName    = "sft_loc"
+	labelCookieName  = "sft_loc_label"
+	maxLocCookieLen  = 48  // "-89.1234,-179.1234" is 18 bytes; 48 is a generous cap
+	maxLabelCookie   = 64  // URL-encoded "ZIP 99999" fits easily; 64 rejects payload dumps
+	defaultLocLabel  = "my location"
 )
 
+// labelPattern accepts only values the app intentionally generates.
+// Keeps the HTML-rendered label out of reach of user-controlled junk.
+var labelPattern = regexp.MustCompile(`^(my location|ZIP \d{5})$`)
+
 // ReadUserLocation pulls the user's chosen sort location from cookies.
-// Returns nil if no valid location cookie is present.
+// Returns nil if no valid location cookie is present or the values are malformed.
 func ReadUserLocation(r *http.Request) *UserLocation {
 	c, err := r.Cookie(locCookieName)
-	if err != nil || c.Value == "" {
+	if err != nil || c.Value == "" || len(c.Value) > maxLocCookieLen {
 		return nil
 	}
 	parts := strings.SplitN(c.Value, ",", 2)
@@ -44,9 +52,9 @@ func ReadUserLocation(r *http.Request) *UserLocation {
 	if err != nil || lng < -180 || lng > 180 {
 		return nil
 	}
-	label := "my location"
-	if lc, err := r.Cookie(labelCookieName); err == nil && lc.Value != "" {
-		if decoded, derr := url.QueryUnescape(lc.Value); derr == nil && decoded != "" {
+	label := defaultLocLabel
+	if lc, err := r.Cookie(labelCookieName); err == nil && lc.Value != "" && len(lc.Value) <= maxLabelCookie {
+		if decoded, derr := url.QueryUnescape(lc.Value); derr == nil && labelPattern.MatchString(decoded) {
 			label = decoded
 		}
 	}
@@ -80,13 +88,4 @@ func AttachDistanceAndSort(trails []models.TrailWithStatus, loc *UserLocation) {
 	slices.SortFunc(trails, func(a, b models.TrailWithStatus) int {
 		return cmp.Compare(a.DistanceMi, b.DistanceMi)
 	})
-}
-
-// attachDistanceSingle adds distance to a single trail (used by vote handler).
-func attachDistanceSingle(trail *models.TrailWithStatus, loc *UserLocation) {
-	if loc == nil || trail == nil {
-		return
-	}
-	trail.DistanceMi = HaversineMiles(loc.Lat, loc.Lng, trail.Latitude, trail.Longitude)
-	trail.HasDistance = true
 }

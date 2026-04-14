@@ -4,15 +4,18 @@
     var MAX_AGE = 60 * 60 * 24; // 1 day
 
     function setCookie(name, value, maxAge) {
+        // Add Secure only on HTTPS so local http://localhost dev still works.
+        var secure = location.protocol === "https:" ? "; secure" : "";
         document.cookie =
             name + "=" + value +
             "; path=/" +
             "; max-age=" + maxAge +
-            "; samesite=lax";
+            "; samesite=lax" + secure;
     }
 
     function clearCookie(name) {
-        document.cookie = name + "=; path=/; max-age=0";
+        var secure = location.protocol === "https:" ? "; secure" : "";
+        document.cookie = name + "=; path=/; max-age=0; samesite=lax" + secure;
     }
 
     function saveLocation(lat, lng, label) {
@@ -34,8 +37,8 @@
             function (pos) {
                 saveLocation(pos.coords.latitude, pos.coords.longitude, "my location");
             },
-            function (err) {
-                alert("Could not get your location: " + err.message);
+            function () {
+                alert("Could not get your location. Check browser permissions and try again.");
             },
             { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 }
         );
@@ -52,23 +55,23 @@
         }
         fetch("https://api.zippopotam.us/us/" + zip)
             .then(function (resp) {
-                if (!resp.ok) throw new Error("ZIP not found");
+                if (!resp.ok) throw new Error("lookup_failed");
                 return resp.json();
             })
             .then(function (data) {
                 if (!data.places || !data.places[0]) {
-                    throw new Error("ZIP has no location data");
+                    throw new Error("lookup_failed");
                 }
                 var place = data.places[0];
                 var lat = parseFloat(place.latitude);
                 var lng = parseFloat(place.longitude);
                 if (isNaN(lat) || isNaN(lng)) {
-                    throw new Error("Invalid coordinates from ZIP lookup");
+                    throw new Error("lookup_failed");
                 }
                 saveLocation(lat, lng, "ZIP " + zip);
             })
-            .catch(function (err) {
-                alert("Could not look up ZIP " + zip + ": " + err.message);
+            .catch(function () {
+                alert("Could not look up ZIP " + zip + ".");
             });
         return false;
     };

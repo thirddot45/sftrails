@@ -8,11 +8,10 @@ import (
 )
 
 type StatusData struct {
-	Endpoints        []weather.EndpointCheck
-	WeatherCached    int
-	WeatherTotal     int
-	WeatherRefresh   time.Time
-	WeatherHasData   bool
+	Endpoints      []weather.EndpointCheck
+	WeatherCached  int
+	WeatherTotal   int
+	WeatherRefresh time.Time
 }
 
 func formatLatency(d time.Duration) string {
