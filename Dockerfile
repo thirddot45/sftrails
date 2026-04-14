@@ -1,5 +1,6 @@
 FROM golang:1-alpine AS build
 
+RUN apk add --no-cache ca-certificates
 RUN go install github.com/a-h/templ/cmd/templ@latest
 
 WORKDIR /src
@@ -12,6 +13,7 @@ RUN CGO_ENABLED=0 go build -tags postgres -ldflags="-s -w" -o /sftrails .
 
 FROM scratch
 
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=build /sftrails /sftrails
 COPY static/ /static/
 
