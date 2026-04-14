@@ -44,6 +44,12 @@ type TrailWithStatus struct {
 	OpenVotes   int
 	ClosedVotes int
 	TotalVotes  int
+	// Weather fields (populated once daily from Open-Meteo)
+	HasWeather       bool
+	WeatherIcon      string
+	WeatherDesc      string
+	WeatherTempHighF float64
+	WeatherRainPct   int
 }
 
 // API response types for JSON endpoints

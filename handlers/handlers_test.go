@@ -26,7 +26,7 @@ func setupTestHandler(t *testing.T) *Handler {
 		t.Fatalf("Failed to initialize test DB: %v", err)
 	}
 	t.Cleanup(func() { d.Close() })
-	return NewHandler(d)
+	return NewHandler(d, nil)
 }
 
 func TestHandleIndex(t *testing.T) {

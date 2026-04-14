@@ -12,6 +12,7 @@ import (
 
 	"sftrails/db"
 	"sftrails/handlers"
+	"sftrails/weather"
 )
 
 func startVoteResetScheduler(ctx context.Context, database *sql.DB) {
@@ -59,13 +60,27 @@ func main() {
 
 	go startVoteResetScheduler(ctx, database)
 
-	h := handlers.NewHandler(database)
+	// Build weather store from trail locations and start daily refresh
+	trails, err := db.GetTrailsWithStatus(ctx, database)
+	if err != nil {
+		slog.Error("failed to load trails for weather", "error", err)
+		os.Exit(1)
+	}
+	locs := make([]weather.Location, len(trails))
+	for i, t := range trails {
+		locs[i] = weather.Location{TrailID: t.ID, Lat: t.Latitude, Lng: t.Longitude}
+	}
+	ws := weather.NewStore(locs)
+	go ws.StartScheduler(ctx)
+
+	h := handlers.NewHandler(database, ws)
 	rl := handlers.NewRateLimiter(30, time.Minute)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", h.HandleIndex)
 	mux.HandleFunc("GET /trails-list", h.HandleTrailsList)
 	mux.Handle("POST /vote", rl.Middleware(http.HandlerFunc(h.HandleVote)))
+	mux.HandleFunc("GET /status", h.HandleStatus)
 	mux.HandleFunc("GET /robots.txt", h.HandleRobotsTxt)
 	mux.HandleFunc("GET /sitemap.xml", h.HandleSitemap)
 	mux.HandleFunc("GET /api/trails", h.HandleAPITrails)
