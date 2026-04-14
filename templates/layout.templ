@@ -64,6 +64,19 @@ templ Layout(title string, description string) {
 			.status-bar.bar-open { background-color: #22c55e; }
 			.status-bar.bar-closed { background-color: #ef4444; }
 			.status-bar.bar-mixed { background-color: #f59e0b; }
+			.vote-toast {
+				padding: 0.5rem 0.75rem;
+				border-radius: 0.5rem;
+				font-size: 0.875rem;
+				font-weight: 600;
+				animation: vote-toast-fade 4s ease forwards;
+			}
+			.vote-toast-ok { background-color: #166534; color: #dcfce7; }
+			.vote-toast-warn { background-color: #92400e; color: #fef3c7; }
+			@keyframes vote-toast-fade {
+				0%, 70% { opacity: 1; transform: translateY(0); }
+				100% { opacity: 0; transform: translateY(-4px); }
+			}
 		</style>
 	</head>
 	<body class="min-h-screen">

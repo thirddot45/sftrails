@@ -19,6 +19,11 @@ templ StatusBar(trail models.TrailWithStatus) {
 
 templ TrailCard(trail models.TrailWithStatus) {
 	<article id={ fmt.Sprintf("trail-%d", trail.ID) } class="trail-card bg-gray-800 rounded-xl shadow p-5 mb-4">
+		if trail.VoteOutcome == models.VoteOutcomeRecorded {
+			<div role="status" class="vote-toast vote-toast-ok mb-3">Vote recorded ✓</div>
+		} else if trail.VoteOutcome == models.VoteOutcomeDuplicate {
+			<div role="status" class="vote-toast vote-toast-warn mb-3">Already voted recently — not counted again</div>
+		}
 		<div class="flex items-start justify-between mb-1">
 			<div class="min-w-0 flex-1 mr-3">
 				<h2 class="text-lg font-bold text-white leading-tight">{ trail.Name }</h2>

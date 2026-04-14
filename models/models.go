@@ -17,6 +17,16 @@ const (
 	StatusUnknown TrailStatus = "unknown"
 )
 
+// VoteOutcome indicates whether a user's vote was recorded or rejected as a
+// duplicate. Used to show immediate feedback in the UI after a vote.
+type VoteOutcome int
+
+const (
+	VoteOutcomeNone VoteOutcome = iota
+	VoteOutcomeRecorded
+	VoteOutcomeDuplicate
+)
+
 type Trail struct {
 	ID          int64
 	Name        string
@@ -50,6 +60,9 @@ type TrailWithStatus struct {
 	WeatherDesc      string
 	WeatherTempHighF float64
 	WeatherRainPct   int
+	// Transient vote outcome set by HandleVote so the TrailCard can show
+	// an ephemeral toast. Not populated by DB queries.
+	VoteOutcome VoteOutcome
 }
 
 // API response types for JSON endpoints

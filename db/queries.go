@@ -132,22 +132,22 @@ func GetTrailWithStatus(ctx context.Context, db *sql.DB, trailID int64) (*models
 	return &t, nil
 }
 
-func CastVote(ctx context.Context, db *sql.DB, trailID int64, vote models.VoteType, ip string, fingerprint string) error {
+func CastVote(ctx context.Context, db *sql.DB, trailID int64, vote models.VoteType, ip string, fingerprint string) (bool, error) {
 	dup, err := HasRecentVote(ctx, db, trailID, ip, fingerprint)
 	if err != nil {
-		return fmt.Errorf("check recent vote: %w", err)
+		return false, fmt.Errorf("check recent vote: %w", err)
 	}
 	if dup {
-		return nil
+		return false, nil
 	}
 	_, err = db.ExecContext(ctx,
 		`INSERT INTO votes (trail_id, vote, ip_address, fingerprint) VALUES (`+placeholders(4)+`)`,
 		trailID, string(vote), ip, fingerprint,
 	)
 	if err != nil {
-		return fmt.Errorf("insert vote: %w", err)
+		return false, fmt.Errorf("insert vote: %w", err)
 	}
-	return nil
+	return true, nil
 }
 
 func ResetVotes(ctx context.Context, db *sql.DB) (int64, error) {

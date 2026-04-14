@@ -46,7 +46,7 @@ func TestCastVote(t *testing.T) {
 	defer d.Close()
 	ctx := context.Background()
 
-	err := CastVote(ctx, d, 1, models.VoteOpen, "127.0.0.1", "abc123")
+	_, err := CastVote(ctx, d, 1, models.VoteOpen, "127.0.0.1", "abc123")
 	if err != nil {
 		t.Fatalf("CastVote error: %v", err)
 	}
@@ -68,14 +68,18 @@ func TestDuplicateVoteRejection(t *testing.T) {
 	defer d.Close()
 	ctx := context.Background()
 
-	// First vote should succeed
-	if err := CastVote(ctx, d, 1, models.VoteOpen, "127.0.0.1", "abc123"); err != nil {
+	// First vote should succeed (recorded=true)
+	if recorded, err := CastVote(ctx, d, 1, models.VoteOpen, "127.0.0.1", "abc123"); err != nil {
 		t.Fatalf("First CastVote error: %v", err)
+	} else if !recorded {
+		t.Error("First CastVote should have been recorded")
 	}
 
-	// Second vote from same IP+fingerprint within 1 hour should be silently rejected
-	if err := CastVote(ctx, d, 1, models.VoteOpen, "127.0.0.1", "abc123"); err != nil {
+	// Second vote from same IP+fingerprint within 1 hour should be silently rejected (recorded=false)
+	if recorded, err := CastVote(ctx, d, 1, models.VoteOpen, "127.0.0.1", "abc123"); err != nil {
 		t.Fatalf("Second CastVote error: %v", err)
+	} else if recorded {
+		t.Error("Second CastVote should have been rejected as duplicate")
 	}
 
 	trail, err := GetTrailWithStatus(ctx, d, 1)
@@ -92,10 +96,10 @@ func TestDifferentIPCanVote(t *testing.T) {
 	defer d.Close()
 	ctx := context.Background()
 
-	if err := CastVote(ctx, d, 1, models.VoteOpen, "127.0.0.1", "abc123"); err != nil {
+	if _, err := CastVote(ctx, d, 1, models.VoteOpen, "127.0.0.1", "abc123"); err != nil {
 		t.Fatalf("First CastVote error: %v", err)
 	}
-	if err := CastVote(ctx, d, 1, models.VoteOpen, "192.168.1.1", "def456"); err != nil {
+	if _, err := CastVote(ctx, d, 1, models.VoteOpen, "192.168.1.1", "def456"); err != nil {
 		t.Fatalf("Second CastVote error: %v", err)
 	}
 
@@ -116,7 +120,7 @@ func TestStatusComputation(t *testing.T) {
 	// Cast 3 open votes (different IPs to avoid dedup)
 	for i := range 3 {
 		ip := "10.0.0." + string(rune('1'+i))
-		if err := CastVote(ctx, d, 1, models.VoteOpen, ip, "fp"+string(rune('1'+i))); err != nil {
+		if _, err := CastVote(ctx, d, 1, models.VoteOpen, ip, "fp"+string(rune('1'+i))); err != nil {
 			t.Fatalf("CastVote error: %v", err)
 		}
 	}

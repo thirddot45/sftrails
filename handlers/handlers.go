@@ -97,7 +97,8 @@ func (h *Handler) HandleVote(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 	ip := GetIP(r)
-	if err := db.CastVote(ctx, h.db, trailID, voteType, ip, fingerprint); err != nil {
+	recorded, err := db.CastVote(ctx, h.db, trailID, voteType, ip, fingerprint)
+	if err != nil {
 		slog.Error("failed to cast vote", "trail_id", trailID, "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
@@ -108,6 +109,12 @@ func (h *Handler) HandleVote(w http.ResponseWriter, r *http.Request) {
 		slog.Error("failed to get trail after vote", "trail_id", trailID, "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
+	}
+
+	if recorded {
+		trail.VoteOutcome = models.VoteOutcomeRecorded
+	} else {
+		trail.VoteOutcome = models.VoteOutcomeDuplicate
 	}
 
 	if h.weather != nil {
