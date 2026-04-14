@@ -50,6 +50,9 @@ type TrailWithStatus struct {
 	WeatherDesc      string
 	WeatherTempHighF float64
 	WeatherRainPct   int
+	// Distance fields (populated when user location is known via cookie)
+	HasDistance bool
+	DistanceMi  float64
 }
 
 // API response types for JSON endpoints

@@ -22,7 +22,12 @@ templ TrailCard(trail models.TrailWithStatus) {
 		<div class="flex items-start justify-between mb-1">
 			<div class="min-w-0 flex-1 mr-3">
 				<h2 class="text-lg font-bold text-white leading-tight">{ trail.Name }</h2>
-				<p class="text-sm text-gray-400">{ trail.City }</p>
+				<p class="text-sm text-gray-400">
+					{ trail.City }
+					if trail.HasDistance {
+						<span class="text-gray-500">· { fmt.Sprintf("%.1f mi", trail.DistanceMi) }</span>
+					}
+				</p>
 			</div>
 			<div class="flex items-center gap-2 flex-shrink-0">
 				if trail.TotalVotes > 0 {
@@ -62,6 +67,26 @@ templ TrailCard(trail models.TrailWithStatus) {
 			</form>
 		</div>
 	</article>
+}
+
+templ SortControls(sortLabel string) {
+	<div class="bg-gray-800 rounded-xl shadow p-3 mb-4 text-sm">
+		if sortLabel != "" {
+			<div class="flex items-center justify-between gap-2 flex-wrap">
+				<span class="text-gray-300">Sorted by distance from <strong class="text-white">{ sortLabel }</strong></span>
+				<button type="button" onclick="sftClearLocation()" class="px-3 py-1 bg-gray-700 rounded text-white hover:bg-gray-600">Clear</button>
+			</div>
+		} else {
+			<div class="flex items-center gap-2 flex-wrap">
+				<span class="text-gray-400">Sort by:</span>
+				<button type="button" onclick="sftUseGeolocation()" class="px-3 py-1 bg-gray-700 rounded text-white hover:bg-gray-600">📍 My location</button>
+				<form onsubmit="sftUseZip(event)" class="flex items-center gap-1">
+					<input id="sft-zip" type="text" inputmode="numeric" pattern="[0-9]{5}" maxlength="5" placeholder="ZIP" aria-label="ZIP code" class="w-20 px-2 py-1 bg-gray-700 text-white rounded placeholder-gray-500" required/>
+					<button type="submit" class="px-3 py-1 bg-gray-700 rounded text-white hover:bg-gray-600">Sort</button>
+				</form>
+			</div>
+		}
+	</div>
 }
 
 templ StatusBadge(status models.TrailStatus) {
