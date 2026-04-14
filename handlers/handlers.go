@@ -47,9 +47,15 @@ func (h *Handler) HandleIndex(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
+	loc := ReadUserLocation(r)
+	AttachDistanceAndSort(trails, loc)
 	h.attachWeather(trails)
+	sortLabel := ""
+	if loc != nil {
+		sortLabel = loc.Label
+	}
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-	if err := templates.IndexPage(trails).Render(r.Context(), w); err != nil {
+	if err := templates.IndexPage(trails, sortLabel).Render(r.Context(), w); err != nil {
 		slog.Error("failed to render index", "error", err)
 	}
 }
@@ -61,6 +67,7 @@ func (h *Handler) HandleTrailsList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
+	AttachDistanceAndSort(trails, ReadUserLocation(r))
 	h.attachWeather(trails)
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	if err := templates.TrailsList(trails).Render(r.Context(), w); err != nil {
@@ -119,6 +126,8 @@ func (h *Handler) HandleVote(w http.ResponseWriter, r *http.Request) {
 			trail.WeatherRainPct = f.RainChance
 		}
 	}
+
+	attachDistanceSingle(trail, ReadUserLocation(r))
 
 	if err := templates.TrailCard(*trail).Render(ctx, w); err != nil {
 		slog.Error("failed to render trail card", "trail_id", trailID, "error", err)
