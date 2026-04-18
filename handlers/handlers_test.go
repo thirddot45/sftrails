@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +16,24 @@ import (
 	"sftrails/db"
 	"sftrails/models"
 )
+
+func changeToProjectRoot() (string, error) {
+	old, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	if err := os.Chdir(".."); err != nil {
+		return "", err
+	}
+	return old, nil
+}
+
+func restoreDir(t *testing.T, dir string) {
+	t.Helper()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("restore chdir: %v", err)
+	}
+}
 
 func setupTestHandler(t *testing.T) *Handler {
 	t.Helper()
@@ -185,6 +204,48 @@ func TestHandleSitemap(t *testing.T) {
 	}
 	if ct := w.Header().Get("Content-Type"); !strings.Contains(ct, "application/xml") {
 		t.Errorf("Expected Content-Type application/xml, got %s", ct)
+	}
+}
+
+func TestHandleSignatureDirectory(t *testing.T) {
+	h := setupTestHandler(t)
+	req := httptest.NewRequest("GET", "/.well-known/http-message-signatures-directory", nil)
+	w := httptest.NewRecorder()
+
+	// The handler resolves the JWKS relative to the repo root; tests run
+	// from handlers/, so temporarily chdir up one level.
+	oldDir, err := changeToProjectRoot()
+	if err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	defer restoreDir(t, oldDir)
+
+	h.HandleSignatureDirectory(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d", w.Code)
+	}
+	if ct := w.Header().Get("Content-Type"); !strings.Contains(ct, "http-message-signatures-directory") {
+		t.Errorf("Expected Content-Type http-message-signatures-directory+json, got %s", ct)
+	}
+
+	var set struct {
+		Keys []struct {
+			Kty, Crv, Alg, Kid, X string
+		} `json:"keys"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &set); err != nil {
+		t.Fatalf("Failed to decode JWKS: %v", err)
+	}
+	if len(set.Keys) == 0 {
+		t.Fatal("Expected at least one key in JWKS")
+	}
+	k := set.Keys[0]
+	if k.Kty != "OKP" || k.Crv != "Ed25519" || k.Alg != "EdDSA" {
+		t.Errorf("Unexpected key params: %+v", k)
+	}
+	if k.Kid == "" || k.X == "" {
+		t.Errorf("Expected non-empty kid and x, got %+v", k)
 	}
 }
 

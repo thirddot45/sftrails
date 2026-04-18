@@ -208,6 +208,12 @@ func (h *Handler) HandleStatus(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h *Handler) HandleSignatureDirectory(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/http-message-signatures-directory+json")
+	w.Header().Set("Cache-Control", "public, max-age=3600")
+	http.ServeFile(w, r, "./static/.well-known/http-message-signatures-directory")
+}
+
 func (h *Handler) HandleRobotsTxt(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	fmt.Fprint(w, `User-agent: *

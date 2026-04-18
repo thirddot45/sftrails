@@ -87,6 +87,7 @@ func main() {
 	mux.Handle("GET /trails-list", md(http.HandlerFunc(h.HandleTrailsList)))
 	mux.Handle("POST /vote", rl.Middleware(md(http.HandlerFunc(h.HandleVote))))
 	mux.Handle("GET /status", md(http.HandlerFunc(h.HandleStatus)))
+	mux.HandleFunc("GET /.well-known/http-message-signatures-directory", h.HandleSignatureDirectory)
 	mux.HandleFunc("GET /robots.txt", h.HandleRobotsTxt)
 	mux.HandleFunc("GET /sitemap.xml", h.HandleSitemap)
 	mux.HandleFunc("GET /api/trails", h.HandleAPITrails)
