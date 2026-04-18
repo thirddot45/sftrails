@@ -1,0 +1,12 @@
+{
+  "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+  "skills": [
+    {
+      "name": "sftrails-status",
+      "type": "skill-md",
+      "description": "Look up current community-reported status (open/closed) and weather for South Florida mountain bike trails via the SF Trails public JSON API.",
+      "url": "/.well-known/agent-skills/sftrails-status/SKILL.md",
+      "digest": "sha256:2eaed011c17b5537d8a80d49a95814369ff3211a699f40e41c79b689f85ac9ae"
+    }
+  ]
+}

@@ -88,6 +88,8 @@ func main() {
 	mux.Handle("POST /vote", rl.Middleware(md(http.HandlerFunc(h.HandleVote))))
 	mux.Handle("GET /status", md(http.HandlerFunc(h.HandleStatus)))
 	mux.HandleFunc("GET /.well-known/http-message-signatures-directory", h.HandleSignatureDirectory)
+	mux.HandleFunc("GET /.well-known/agent-skills/index.json", h.HandleAgentSkillsIndex)
+	mux.HandleFunc("GET /.well-known/agent-skills/{path...}", h.HandleAgentSkillFile)
 	mux.HandleFunc("GET /robots.txt", h.HandleRobotsTxt)
 	mux.HandleFunc("GET /sitemap.xml", h.HandleSitemap)
 	mux.HandleFunc("GET /api/trails", h.HandleAPITrails)

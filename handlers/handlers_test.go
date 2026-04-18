@@ -4,7 +4,10 @@ package handlers
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -246,6 +249,65 @@ func TestHandleSignatureDirectory(t *testing.T) {
 	}
 	if k.Kid == "" || k.X == "" {
 		t.Errorf("Expected non-empty kid and x, got %+v", k)
+	}
+}
+
+func TestHandleAgentSkillsIndex(t *testing.T) {
+	h := setupTestHandler(t)
+	oldDir, err := changeToProjectRoot()
+	if err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	defer restoreDir(t, oldDir)
+
+	req := httptest.NewRequest("GET", "/.well-known/agent-skills/index.json", nil)
+	w := httptest.NewRecorder()
+	h.HandleAgentSkillsIndex(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d", w.Code)
+	}
+
+	var idx struct {
+		Schema string `json:"$schema"`
+		Skills []struct {
+			Name, Type, Description, URL, Digest string
+		} `json:"skills"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &idx); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if idx.Schema == "" {
+		t.Error("Expected $schema field")
+	}
+	if len(idx.Skills) == 0 {
+		t.Fatal("Expected at least one skill")
+	}
+
+	for _, s := range idx.Skills {
+		if s.Name == "" || s.Type == "" || s.Description == "" || s.URL == "" {
+			t.Errorf("Skill missing required fields: %+v", s)
+		}
+		if !strings.HasPrefix(s.Digest, "sha256:") {
+			t.Errorf("Skill %q digest missing sha256: prefix: %q", s.Name, s.Digest)
+		}
+		// Verify digest matches the actual served bytes so the index stays
+		// honest when a SKILL.md is edited.
+		rel := strings.TrimPrefix(s.URL, "/.well-known/agent-skills/")
+		skillReq := httptest.NewRequest("GET", s.URL, nil)
+		skillReq.SetPathValue("path", rel)
+		skillW := httptest.NewRecorder()
+		h.HandleAgentSkillFile(skillW, skillReq)
+		if skillW.Code != http.StatusOK {
+			t.Errorf("Skill %q: expected 200 from %s, got %d", s.Name, s.URL, skillW.Code)
+			continue
+		}
+		body, _ := io.ReadAll(skillW.Body)
+		sum := sha256.Sum256(body)
+		got := "sha256:" + hex.EncodeToString(sum[:])
+		if got != s.Digest {
+			t.Errorf("Skill %q digest mismatch: index=%s actual=%s", s.Name, s.Digest, got)
+		}
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"sftrails/db"
@@ -212,6 +213,27 @@ func (h *Handler) HandleSignatureDirectory(w http.ResponseWriter, r *http.Reques
 	w.Header().Set("Content-Type", "application/http-message-signatures-directory+json")
 	w.Header().Set("Cache-Control", "public, max-age=3600")
 	http.ServeFile(w, r, "./static/.well-known/http-message-signatures-directory")
+}
+
+func (h *Handler) HandleAgentSkillsIndex(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "public, max-age=300")
+	http.ServeFile(w, r, "./static/.well-known/agent-skills/index.json")
+}
+
+func (h *Handler) HandleAgentSkillFile(w http.ResponseWriter, r *http.Request) {
+	rel := r.PathValue("path")
+	if rel == "" || strings.Contains(rel, "..") {
+		http.NotFound(w, r)
+		return
+	}
+	if !strings.HasSuffix(rel, "/SKILL.md") {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+	w.Header().Set("Cache-Control", "public, max-age=300")
+	http.ServeFile(w, r, "./static/.well-known/agent-skills/"+rel)
 }
 
 func (h *Handler) HandleRobotsTxt(w http.ResponseWriter, r *http.Request) {
