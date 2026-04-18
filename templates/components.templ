@@ -31,6 +31,7 @@ templ TrailCard(trail models.TrailWithStatus) {
 			</div>
 			<div class="flex items-center gap-2 flex-shrink-0">
 				<span class="text-xs text-gray-400" aria-label="open and closed vote counts">{ fmt.Sprintf("%d/%d", trail.OpenVotes, trail.ClosedVotes) }</span>
+				<span class="text-xs text-gray-500" aria-hidden="true">{ "•\u00a0" }</span>
 				@StatusBadge(trail.Status)
 			</div>
 		</div>
