@@ -168,6 +168,12 @@ func TestRateLimiter(t *testing.T) {
 
 func TestHandleRobotsTxt(t *testing.T) {
 	h := setupTestHandler(t)
+	oldDir, err := changeToProjectRoot()
+	if err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	defer restoreDir(t, oldDir)
+
 	req := httptest.NewRequest("GET", "/robots.txt", nil)
 	w := httptest.NewRecorder()
 
@@ -440,8 +446,37 @@ func TestHandleAPITrailInvalidID(t *testing.T) {
 	}
 }
 
+func TestRobotsTxtContentSignal(t *testing.T) {
+	h := setupTestHandler(t)
+	oldDir, err := changeToProjectRoot()
+	if err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	defer restoreDir(t, oldDir)
+
+	req := httptest.NewRequest("GET", "/robots.txt", nil)
+	w := httptest.NewRecorder()
+	h.HandleRobotsTxt(w, req)
+
+	body := w.Body.String()
+	if !strings.Contains(body, "Content-Signal:") {
+		t.Fatalf("Expected Content-Signal directive in robots.txt, got:\n%s", body)
+	}
+	for _, tok := range []string{"ai-train=", "search=", "ai-input="} {
+		if !strings.Contains(body, tok) {
+			t.Errorf("Expected %q in Content-Signal line, got:\n%s", tok, body)
+		}
+	}
+}
+
 func TestRobotsTxtAICrawlers(t *testing.T) {
 	h := setupTestHandler(t)
+	oldDir, err := changeToProjectRoot()
+	if err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	defer restoreDir(t, oldDir)
+
 	req := httptest.NewRequest("GET", "/robots.txt", nil)
 	w := httptest.NewRecorder()
 

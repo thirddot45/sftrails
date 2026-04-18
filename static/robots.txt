@@ -4,6 +4,8 @@ Allow: /
 Allow: /api/
 Allow: /llms.txt
 Allow: /llms-full.txt
+Disallow: /vote
+Disallow: /trails-list
 
 Sitemap: /sitemap.xml
 

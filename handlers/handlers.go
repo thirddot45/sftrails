@@ -238,46 +238,8 @@ func (h *Handler) HandleAgentSkillFile(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) HandleRobotsTxt(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	fmt.Fprint(w, `User-agent: *
-Allow: /
-Allow: /api/
-Allow: /llms.txt
-Allow: /llms-full.txt
-Disallow: /vote
-Disallow: /trails-list
-
-Sitemap: /sitemap.xml
-
-User-agent: GPTBot
-Allow: /
-
-User-agent: ChatGPT-User
-Allow: /
-
-User-agent: ClaudeBot
-Allow: /
-
-User-agent: Claude-SearchBot
-Allow: /
-
-User-agent: PerplexityBot
-Allow: /
-
-User-agent: Google-Extended
-Allow: /
-
-User-agent: Applebot-Extended
-Allow: /
-
-User-agent: Amazonbot
-Allow: /
-
-User-agent: Bytespider
-Allow: /
-
-User-agent: cohere-ai
-Allow: /
-`)
+	w.Header().Set("Cache-Control", "public, max-age=3600")
+	http.ServeFile(w, r, "./static/robots.txt")
 }
 
 func (h *Handler) HandleSitemap(w http.ResponseWriter, r *http.Request) {
