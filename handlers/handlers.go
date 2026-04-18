@@ -65,6 +65,10 @@ func (h *Handler) HandleIndex(w http.ResponseWriter, r *http.Request) {
 		sortLabel = loc.Label
 	}
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Add("Link", `</api/trails>; rel="service-desc"; type="application/json"`)
+	w.Header().Add("Link", `</llms.txt>; rel="service-doc"; type="text/plain"`)
+	w.Header().Add("Link", `</llms-full.txt>; rel="service-doc"; type="text/plain"`)
+	w.Header().Add("Link", `</sitemap.xml>; rel="sitemap"; type="application/xml"`)
 	if err := templates.IndexPage(trails, sortLabel).Render(r.Context(), w); err != nil {
 		slog.Error("failed to render index", "error", err)
 	}
