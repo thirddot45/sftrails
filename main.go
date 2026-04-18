@@ -80,11 +80,13 @@ func main() {
 	h := handlers.NewHandler(database, ws)
 	rl := handlers.NewRateLimiter(30, time.Minute)
 
+	md := handlers.MarkdownNegotiationMiddleware
+
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /{$}", h.HandleIndex)
-	mux.HandleFunc("GET /trails-list", h.HandleTrailsList)
-	mux.Handle("POST /vote", rl.Middleware(http.HandlerFunc(h.HandleVote)))
-	mux.HandleFunc("GET /status", h.HandleStatus)
+	mux.Handle("GET /{$}", md(http.HandlerFunc(h.HandleIndex)))
+	mux.Handle("GET /trails-list", md(http.HandlerFunc(h.HandleTrailsList)))
+	mux.Handle("POST /vote", rl.Middleware(md(http.HandlerFunc(h.HandleVote))))
+	mux.Handle("GET /status", md(http.HandlerFunc(h.HandleStatus)))
 	mux.HandleFunc("GET /robots.txt", h.HandleRobotsTxt)
 	mux.HandleFunc("GET /sitemap.xml", h.HandleSitemap)
 	mux.HandleFunc("GET /api/trails", h.HandleAPITrails)

@@ -394,6 +394,74 @@ func TestNoCacheHeadersOnHTMLPages(t *testing.T) {
 	})
 }
 
+func TestMarkdownNegotiationIndex(t *testing.T) {
+	h := setupTestHandler(t)
+	handler := MarkdownNegotiationMiddleware(http.HandlerFunc(h.HandleIndex))
+
+	req := httptest.NewRequest("GET", "/", nil)
+	req.Header.Set("Accept", "text/markdown")
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d", w.Code)
+	}
+	if ct := w.Header().Get("Content-Type"); !strings.Contains(ct, "text/markdown") {
+		t.Errorf("Expected Content-Type text/markdown, got %q", ct)
+	}
+	if tok := w.Header().Get("X-Markdown-Tokens"); tok == "" {
+		t.Error("Expected X-Markdown-Tokens header to be set")
+	}
+	if vary := w.Header().Get("Vary"); !strings.Contains(vary, "Accept") {
+		t.Errorf("Expected Vary to include Accept, got %q", vary)
+	}
+	body := w.Body.String()
+	if strings.Contains(body, "<html") || strings.Contains(body, "<div") {
+		t.Errorf("Expected markdown body, but found HTML tags: %q", body[:min(200, len(body))])
+	}
+	if !strings.Contains(body, "Markham Park") {
+		t.Error("Expected markdown body to contain 'Markham Park'")
+	}
+}
+
+func TestMarkdownNegotiationPassthroughHTML(t *testing.T) {
+	h := setupTestHandler(t)
+	handler := MarkdownNegotiationMiddleware(http.HandlerFunc(h.HandleIndex))
+
+	req := httptest.NewRequest("GET", "/", nil)
+	// No Accept header - browsers should get HTML
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "<html") {
+		t.Error("Expected HTML response for default Accept")
+	}
+	if ct := w.Header().Get("Content-Type"); strings.Contains(ct, "text/markdown") {
+		t.Errorf("Did not expect text/markdown, got %q", ct)
+	}
+}
+
+func TestMarkdownNegotiationMultipleAccept(t *testing.T) {
+	h := setupTestHandler(t)
+	handler := MarkdownNegotiationMiddleware(http.HandlerFunc(h.HandleIndex))
+
+	req := httptest.NewRequest("GET", "/", nil)
+	req.Header.Set("Accept", "text/html, text/markdown;q=0.9")
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, req)
+
+	if ct := w.Header().Get("Content-Type"); !strings.Contains(ct, "text/markdown") {
+		t.Errorf("Expected Content-Type text/markdown when client includes it, got %q", ct)
+	}
+}
+
 func TestGetIP(t *testing.T) {
 	tests := []struct {
 		name     string
