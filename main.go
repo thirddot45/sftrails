@@ -84,6 +84,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.Handle("GET /{$}", md(http.HandlerFunc(h.HandleIndex)))
+	mux.Handle("GET /trail/{slug}", md(http.HandlerFunc(h.HandleTrailDetail)))
 	mux.Handle("GET /trails-list", md(http.HandlerFunc(h.HandleTrailsList)))
 	mux.Handle("POST /vote", rl.Middleware(md(http.HandlerFunc(h.HandleVote))))
 	mux.Handle("GET /status", md(http.HandlerFunc(h.HandleStatus)))
@@ -104,7 +105,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:              ":8080",
-		Handler:           handlers.LoggingMiddleware(mux),
+		Handler:           handlers.LoggingMiddleware(handlers.MarkdownSuffixMiddleware(mux)),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      15 * time.Second,

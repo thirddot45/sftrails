@@ -70,6 +70,31 @@ func approximateTokens(s string) int {
 	return n
 }
 
+// MarkdownSuffixMiddleware lets clients request the markdown variant of any
+// page by appending ".md" to the URL (e.g. /index.md, /trail/foo.md). It
+// strips the suffix and forces Accept: text/markdown so the existing
+// negotiation middleware downstream produces markdown.
+//
+// Special case: /index.md is rewritten to / so the root route still matches.
+func MarkdownSuffixMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		p := r.URL.Path
+		if !strings.HasSuffix(p, ".md") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		stripped := strings.TrimSuffix(p, ".md")
+		if stripped == "/index" || stripped == "" {
+			stripped = "/"
+		}
+		r2 := r.Clone(r.Context())
+		r2.URL.Path = stripped
+		r2.URL.RawPath = ""
+		r2.Header.Set("Accept", "text/markdown")
+		next.ServeHTTP(w, r2)
+	})
+}
+
 // MarkdownNegotiationMiddleware converts HTML responses to markdown when the
 // client sends Accept: text/markdown. Other requests pass through unchanged.
 // Responds with Content-Type: text/markdown and x-markdown-tokens for a rough

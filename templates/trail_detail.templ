@@ -1,0 +1,61 @@
+package templates
+
+import (
+	"fmt"
+	"sftrails/models"
+	"strings"
+)
+
+func slugify(s string) string {
+	s = strings.ToLower(s)
+	var b strings.Builder
+	prevDash := true
+	for _, r := range s {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			b.WriteRune(r)
+			prevDash = false
+		default:
+			if !prevDash {
+				b.WriteByte('-')
+				prevDash = true
+			}
+		}
+	}
+	return strings.TrimRight(b.String(), "-")
+}
+
+func trailDetailJSONLD(t models.TrailWithStatus) string {
+	status := "Unknown"
+	if t.Status == models.StatusOpen {
+		status = "Open"
+	} else if t.Status == models.StatusClosed {
+		status = "Closed"
+	}
+	return fmt.Sprintf(`<script type="application/ld+json">{
+		"@context": "https://schema.org",
+		"@type": "SportsActivityLocation",
+		"name": %q,
+		"description": %q,
+		"address": {"@type":"PostalAddress","addressLocality":%q,"addressRegion":"FL","addressCountry":"US"},
+		"geo": {"@type":"GeoCoordinates","latitude":%f,"longitude":%f},
+		"publicAccess": true,
+		"additionalProperty": {"@type":"PropertyValue","name":"Trail Status","value":%q}
+	}</script>`, t.Name, t.Description, t.City, t.Latitude, t.Longitude, status)
+}
+
+templ TrailDetailPage(trail models.TrailWithStatus) {
+	@LayoutPath(
+		fmt.Sprintf("%s - SF Trails", trail.Name),
+		fmt.Sprintf("Current community-reported status, weather, and details for %s mountain bike trail in %s, FL.", trail.Name, trail.City),
+		"/trail/"+slugify(trail.Name),
+	) {
+		@templ.Raw(trailDetailJSONLD(trail))
+		<nav class="mb-4 text-sm">
+			<a href="/" class="text-blue-400 hover:underline">← All trails</a>
+		</nav>
+		<section aria-label="Trail detail">
+			@TrailCard(trail)
+		</section>
+	}
+}

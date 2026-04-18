@@ -34,3 +34,13 @@ Trail data is available as JSON at the `/api/trails` endpoint. Each trail includ
 - name, city, description, location coordinates (latitude/longitude)
 - current status (open, closed, or unknown)
 - vote counts (open votes, closed votes, total votes)
+
+## Markdown for agents
+
+Every HTML page can be retrieved as markdown either by:
+- sending `Accept: text/markdown`, or
+- appending `.md` to the URL (`/index.md`, `/trail/markham-park.md`).
+
+A rough token estimate is returned in the `X-Markdown-Tokens` response
+header, and HTML pages advertise the markdown variant via
+`<link rel="alternate" type="text/markdown">`.

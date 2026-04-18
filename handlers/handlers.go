@@ -70,9 +70,57 @@ func (h *Handler) HandleIndex(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Link", `</llms.txt>; rel="service-doc"; type="text/plain"`)
 	w.Header().Add("Link", `</llms-full.txt>; rel="service-doc"; type="text/plain"`)
 	w.Header().Add("Link", `</sitemap.xml>; rel="sitemap"; type="application/xml"`)
+	w.Header().Add("Link", `</index.md>; rel="alternate"; type="text/markdown"`)
 	if err := templates.IndexPage(trails, sortLabel).Render(r.Context(), w); err != nil {
 		slog.Error("failed to render index", "error", err)
 	}
+}
+
+// Slugify converts a trail name to a URL-safe kebab-case slug.
+// "Markham Park" -> "markham-park", "Oleta River State Park" -> "oleta-river-state-park".
+func Slugify(s string) string {
+	s = strings.ToLower(s)
+	var b strings.Builder
+	b.Grow(len(s))
+	prevDash := true
+	for _, r := range s {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			b.WriteRune(r)
+			prevDash = false
+		default:
+			if !prevDash {
+				b.WriteByte('-')
+				prevDash = true
+			}
+		}
+	}
+	return strings.TrimRight(b.String(), "-")
+}
+
+func (h *Handler) HandleTrailDetail(w http.ResponseWriter, r *http.Request) {
+	slug := r.PathValue("slug")
+	trails, err := db.GetTrailsWithStatus(r.Context(), h.db)
+	if err != nil {
+		slog.Error("failed to get trails", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	for i := range trails {
+		if Slugify(trails[i].Name) != slug {
+			continue
+		}
+		trail := trails[i]
+		AttachDistanceAndSort([]models.TrailWithStatus{trail}, ReadUserLocation(r))
+		h.attachWeatherOne(&trail)
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		w.Header().Add("Link", fmt.Sprintf(`</trail/%s.md>; rel="alternate"; type="text/markdown"`, slug))
+		if err := templates.TrailDetailPage(trail).Render(r.Context(), w); err != nil {
+			slog.Error("failed to render trail detail", "slug", slug, "error", err)
+		}
+		return
+	}
+	http.NotFound(w, r)
 }
 
 func (h *Handler) HandleTrailsList(w http.ResponseWriter, r *http.Request) {

@@ -1,6 +1,21 @@
 package templates
 
+// markdownAltHref returns the .md alternate URL for a canonical path.
+// "/" becomes "/index.md"; everything else gets ".md" appended.
+func markdownAltHref(path string) string {
+	if path == "" || path == "/" {
+		return "/index.md"
+	}
+	return path + ".md"
+}
+
 templ Layout(title string, description string) {
+	@LayoutPath(title, description, "/") {
+		{ children... }
+	}
+}
+
+templ LayoutPath(title string, description string, canonicalPath string) {
 	<!DOCTYPE html>
 	<html lang="en">
 	<head>
@@ -8,12 +23,13 @@ templ Layout(title string, description string) {
 		<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 		<title>{ title }</title>
 		<meta name="description" content={ description }/>
-		<link rel="canonical" href="https://sftrails.info/"/>
+		<link rel="canonical" href={ "https://sftrails.info" + canonicalPath }/>
+		<link rel="alternate" type="text/markdown" href={ markdownAltHref(canonicalPath) }/>
 		<!-- Open Graph -->
 		<meta property="og:type" content="website"/>
 		<meta property="og:title" content={ title }/>
 		<meta property="og:description" content={ description }/>
-		<meta property="og:url" content="https://sftrails.info/"/>
+		<meta property="og:url" content={ "https://sftrails.info" + canonicalPath }/>
 		<meta property="og:site_name" content="SF Trails"/>
 		<meta property="og:locale" content="en_US"/>
 		<!-- Twitter Card -->

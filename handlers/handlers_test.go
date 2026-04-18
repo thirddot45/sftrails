@@ -446,6 +446,141 @@ func TestHandleAPITrailInvalidID(t *testing.T) {
 	}
 }
 
+func TestSlugify(t *testing.T) {
+	cases := map[string]string{
+		"Markham Park":               "markham-park",
+		"Oleta River State Park":     "oleta-river-state-park",
+		"Jonathan Dickinson State Park": "jonathan-dickinson-state-park",
+		"  Spaced  Name  ":           "spaced-name",
+		"Foo--Bar":                   "foo-bar",
+	}
+	for in, want := range cases {
+		if got := Slugify(in); got != want {
+			t.Errorf("Slugify(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestHandleTrailDetailHTML(t *testing.T) {
+	h := setupTestHandler(t)
+	mux := http.NewServeMux()
+	mux.Handle("GET /trail/{slug}", http.HandlerFunc(h.HandleTrailDetail))
+
+	req := httptest.NewRequest("GET", "/trail/markham-park", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "Markham Park") {
+		t.Error("Expected detail page to contain trail name")
+	}
+	if !strings.Contains(body, `rel="canonical" href="https://sftrails.info/trail/markham-park"`) {
+		t.Error("Expected per-trail canonical link")
+	}
+	if !strings.Contains(body, `rel="alternate" type="text/markdown" href="/trail/markham-park.md"`) {
+		t.Error("Expected per-trail markdown alternate link")
+	}
+}
+
+func TestHandleTrailDetailNotFound(t *testing.T) {
+	h := setupTestHandler(t)
+	mux := http.NewServeMux()
+	mux.Handle("GET /trail/{slug}", http.HandlerFunc(h.HandleTrailDetail))
+
+	req := httptest.NewRequest("GET", "/trail/no-such-trail", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("Expected 404, got %d", w.Code)
+	}
+}
+
+func TestMarkdownSuffixIndex(t *testing.T) {
+	h := setupTestHandler(t)
+	mux := http.NewServeMux()
+	mux.Handle("GET /{$}", MarkdownNegotiationMiddleware(http.HandlerFunc(h.HandleIndex)))
+	wrapped := MarkdownSuffixMiddleware(mux)
+
+	req := httptest.NewRequest("GET", "/index.md", nil)
+	w := httptest.NewRecorder()
+	wrapped.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d", w.Code)
+	}
+	if ct := w.Header().Get("Content-Type"); !strings.Contains(ct, "text/markdown") {
+		t.Errorf("Expected markdown Content-Type, got %q", ct)
+	}
+	if strings.Contains(w.Body.String(), "<html") {
+		t.Error("Expected markdown body, got HTML")
+	}
+}
+
+func TestMarkdownSuffixTrailDetail(t *testing.T) {
+	h := setupTestHandler(t)
+	mux := http.NewServeMux()
+	mux.Handle("GET /trail/{slug}", MarkdownNegotiationMiddleware(http.HandlerFunc(h.HandleTrailDetail)))
+	wrapped := MarkdownSuffixMiddleware(mux)
+
+	req := httptest.NewRequest("GET", "/trail/markham-park.md", nil)
+	w := httptest.NewRecorder()
+	wrapped.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d, body=%q", w.Code, w.Body.String())
+	}
+	if ct := w.Header().Get("Content-Type"); !strings.Contains(ct, "text/markdown") {
+		t.Errorf("Expected markdown Content-Type, got %q", ct)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "Markham Park") {
+		t.Error("Expected markdown body to contain trail name")
+	}
+}
+
+func TestIndexAlternateMarkdownLink(t *testing.T) {
+	h := setupTestHandler(t)
+	req := httptest.NewRequest("GET", "/", nil)
+	w := httptest.NewRecorder()
+	h.HandleIndex(w, req)
+
+	body := w.Body.String()
+	if !strings.Contains(body, `rel="alternate" type="text/markdown" href="/index.md"`) {
+		t.Error("Expected <link rel=alternate type=text/markdown> in HTML head")
+	}
+
+	// Link header should also advertise the markdown alternate.
+	links := w.Header().Values("Link")
+	found := false
+	for _, l := range links {
+		if strings.Contains(l, `rel="alternate"`) && strings.Contains(l, "text/markdown") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("Expected Link: rel=alternate text/markdown header, got %v", links)
+	}
+}
+
+func TestTrailCardAlwaysShowsVoteCounts(t *testing.T) {
+	h := setupTestHandler(t)
+	req := httptest.NewRequest("GET", "/", nil)
+	w := httptest.NewRecorder()
+	h.HandleIndex(w, req)
+
+	body := w.Body.String()
+	// Every trail in seed data starts with 0 votes; the card should still
+	// render "0/0" rather than omitting the count.
+	if !strings.Contains(body, "0/0") {
+		t.Error("Expected unvoted trails to display 0/0, but no 0/0 found in body")
+	}
+}
+
 func TestRobotsTxtContentSignal(t *testing.T) {
 	h := setupTestHandler(t)
 	oldDir, err := changeToProjectRoot()
