@@ -499,6 +499,69 @@ func TestHandleTrailDetailNotFound(t *testing.T) {
 	}
 }
 
+// Regression: when a request comes in via the .md suffix middleware (which
+// forces Accept: text/markdown) and the handler returns 404, the captured
+// status must reach the client. Previously the markdown capture writer
+// swallowed WriteHeader and the response went out as 200.
+func TestMarkdownSuffixPreservesNotFound(t *testing.T) {
+	h := setupTestHandler(t)
+	mux := http.NewServeMux()
+	mux.Handle("GET /trail/{slug}", MarkdownNegotiationMiddleware(http.HandlerFunc(h.HandleTrailDetail)))
+	wrapped := MarkdownSuffixMiddleware(mux)
+
+	req := httptest.NewRequest("GET", "/trail/no-such-trail.md", nil)
+	w := httptest.NewRecorder()
+	wrapped.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("Expected 404 for unknown .md slug, got %d", w.Code)
+	}
+}
+
+func TestSitemapListsAllTrails(t *testing.T) {
+	h := setupTestHandler(t)
+	req := httptest.NewRequest("GET", "/sitemap.xml", nil)
+	w := httptest.NewRecorder()
+	h.HandleSitemap(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "<loc>https://sftrails.info/</loc>") {
+		t.Error("Expected sitemap to contain index URL")
+	}
+	for _, want := range []string{"markham-park", "oleta-river-state-park", "tree-tops-park"} {
+		needle := "<loc>https://sftrails.info/trail/" + want + "</loc>"
+		if !strings.Contains(body, needle) {
+			t.Errorf("Expected sitemap to contain %q", needle)
+		}
+	}
+	// Should be 13 <url> entries: index + 12 trails.
+	if got := strings.Count(body, "<url>"); got != 13 {
+		t.Errorf("Expected 13 <url> entries (index + 12 trails), got %d", got)
+	}
+}
+
+func TestLayoutHasOGImage(t *testing.T) {
+	h := setupTestHandler(t)
+	req := httptest.NewRequest("GET", "/", nil)
+	w := httptest.NewRecorder()
+	h.HandleIndex(w, req)
+	body := w.Body.String()
+	for _, needle := range []string{
+		`property="og:image" content="https://sftrails.info/static/og-image.png"`,
+		`property="og:image:width" content="1200"`,
+		`property="og:image:height" content="630"`,
+		`name="twitter:card" content="summary_large_image"`,
+		`name="twitter:image" content="https://sftrails.info/static/og-image.png"`,
+	} {
+		if !strings.Contains(body, needle) {
+			t.Errorf("Expected layout to contain %q", needle)
+		}
+	}
+}
+
 func TestMarkdownSuffixIndex(t *testing.T) {
 	h := setupTestHandler(t)
 	mux := http.NewServeMux()

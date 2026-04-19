@@ -113,6 +113,7 @@ func MarkdownNegotiationMiddleware(next http.Handler) http.Handler {
 		if ct != "" && !strings.Contains(ct, "text/html") {
 			// Not HTML (e.g. an error page emitted via http.Error as text/plain);
 			// forward the buffered bytes untouched.
+			w.WriteHeader(cap.status)
 			if _, err := w.Write(cap.buf.Bytes()); err != nil {
 				slog.Error("failed to write passthrough body", "error", err)
 			}
@@ -123,6 +124,7 @@ func MarkdownNegotiationMiddleware(next http.Handler) http.Handler {
 		if err != nil {
 			slog.Error("failed to convert HTML to markdown", "error", err)
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.WriteHeader(cap.status)
 			if _, werr := w.Write(cap.buf.Bytes()); werr != nil {
 				slog.Error("failed to write fallback HTML body", "error", werr)
 			}
@@ -132,6 +134,7 @@ func MarkdownNegotiationMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
 		w.Header().Set("X-Markdown-Tokens", strconv.Itoa(approximateTokens(md)))
 		w.Header().Set("Vary", appendVary(w.Header().Get("Vary"), "Accept"))
+		w.WriteHeader(cap.status)
 		if _, err := w.Write([]byte(md)); err != nil {
 			slog.Error("failed to write markdown body", "error", err)
 		}

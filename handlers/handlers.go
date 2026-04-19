@@ -293,13 +293,22 @@ func (h *Handler) HandleRobotsTxt(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) HandleSitemap(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/xml; charset=utf-8")
 	lastmod := time.Now().UTC().Format("2006-01-02")
-	fmt.Fprintf(w, `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>https://sftrails.info/</loc>
-    <lastmod>%s</lastmod>
-    <changefreq>hourly</changefreq>
-    <priority>1.0</priority>
-  </url>
-</urlset>`, lastmod)
+
+	var b strings.Builder
+	b.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n")
+	b.WriteString(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` + "\n")
+	fmt.Fprintf(&b, "  <url>\n    <loc>https://sftrails.info/</loc>\n    <lastmod>%s</lastmod>\n    <changefreq>hourly</changefreq>\n    <priority>1.0</priority>\n  </url>\n", lastmod)
+
+	if trails, err := db.GetTrailsWithStatus(r.Context(), h.db); err == nil {
+		for _, t := range trails {
+			fmt.Fprintf(&b, "  <url>\n    <loc>https://sftrails.info/trail/%s</loc>\n    <lastmod>%s</lastmod>\n    <changefreq>hourly</changefreq>\n    <priority>0.8</priority>\n  </url>\n", Slugify(t.Name), lastmod)
+		}
+	} else {
+		slog.Warn("sitemap: trail lookup failed; serving index-only sitemap", "error", err)
+	}
+
+	b.WriteString(`</urlset>`)
+	if _, err := w.Write([]byte(b.String())); err != nil {
+		slog.Error("failed to write sitemap", "error", err)
+	}
 }
