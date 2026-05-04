@@ -485,6 +485,57 @@ func TestHandleTrailDetailHTML(t *testing.T) {
 	}
 }
 
+func TestTrailDetailHasH1AndBreadcrumb(t *testing.T) {
+	h := setupTestHandler(t)
+	mux := http.NewServeMux()
+	mux.Handle("GET /trail/{slug}", http.HandlerFunc(h.HandleTrailDetail))
+
+	req := httptest.NewRequest("GET", "/trail/markham-park", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d", w.Code)
+	}
+	body := w.Body.String()
+	// A real <h1> with the trail name (not just the site brand h1) is the
+	// single biggest on-page SEO signal for the detail page.
+	if !strings.Contains(body, `<h1 class="text-2xl font-bold text-white mb-1">Markham Park</h1>`) {
+		t.Error("Expected trail detail page to render trail name as <h1>")
+	}
+	// BreadcrumbList enables breadcrumb-style search snippets.
+	if !strings.Contains(body, `"@type": "BreadcrumbList"`) {
+		t.Error("Expected BreadcrumbList JSON-LD on trail detail page")
+	}
+	// InteractionCounter surfaces vote engagement to crawlers.
+	if !strings.Contains(body, `"@type":"InteractionCounter"`) {
+		t.Error("Expected InteractionCounter JSON-LD on trail detail page")
+	}
+	// "Other trails" cross-linking improves crawl depth and internal PageRank.
+	if !strings.Contains(body, `Other South Florida trails`) {
+		t.Error("Expected related-trails section on detail page")
+	}
+	// Page title and description should reflect the live status verbiage.
+	if !strings.Contains(body, `Markham Park — `) {
+		t.Error("Expected status-bearing <title> on trail detail page")
+	}
+}
+
+func TestIndexHasItemListJSONLD(t *testing.T) {
+	h := setupTestHandler(t)
+	req := httptest.NewRequest("GET", "/", nil)
+	w := httptest.NewRecorder()
+	h.HandleIndex(w, req)
+
+	body := w.Body.String()
+	if !strings.Contains(body, `"@type": "ItemList"`) {
+		t.Error("Expected ItemList JSON-LD on index page")
+	}
+	if !strings.Contains(body, `"@type":"ListItem"`) {
+		t.Error("Expected ListItem entries inside ItemList JSON-LD")
+	}
+}
+
 func TestHandleTrailDetailNotFound(t *testing.T) {
 	h := setupTestHandler(t)
 	mux := http.NewServeMux()
@@ -537,9 +588,15 @@ func TestSitemapListsAllTrails(t *testing.T) {
 			t.Errorf("Expected sitemap to contain %q", needle)
 		}
 	}
-	// Should be 13 <url> entries: index + 12 trails.
-	if got := strings.Count(body, "<url>"); got != 13 {
-		t.Errorf("Expected 13 <url> entries (index + 12 trails), got %d", got)
+	// Should be 16 <url> entries: index + 12 trails + llms.txt + llms-full.txt + /api/trails.
+	if got := strings.Count(body, "<url>"); got != 16 {
+		t.Errorf("Expected 16 <url> entries (index + 12 trails + 3 docs/feeds), got %d", got)
+	}
+	for _, want := range []string{"/llms.txt", "/llms-full.txt", "/api/trails"} {
+		needle := "<loc>https://sftrails.info" + want + "</loc>"
+		if !strings.Contains(body, needle) {
+			t.Errorf("Expected sitemap to contain %q", needle)
+		}
 	}
 }
 

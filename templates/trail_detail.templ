@@ -25,37 +25,111 @@ func slugify(s string) string {
 	return strings.TrimRight(b.String(), "-")
 }
 
-func trailDetailJSONLD(t models.TrailWithStatus) string {
-	status := "Unknown"
-	if t.Status == models.StatusOpen {
-		status = "Open"
-	} else if t.Status == models.StatusClosed {
-		status = "Closed"
+// statusLabel maps an internal trail status to a human-readable label
+// suitable for page titles, descriptions, and structured data.
+func statusLabel(s models.TrailStatus) string {
+	switch s {
+	case models.StatusOpen:
+		return "Rideable"
+	case models.StatusClosed:
+		return "Closed"
+	default:
+		return "Unknown"
 	}
+}
+
+// trailDetailTitle composes a status-bearing <title> so search snippets and
+// social previews reflect the current community-reported state.
+func trailDetailTitle(t models.TrailWithStatus) string {
+	return fmt.Sprintf("%s — %s today | SF Trails (%s, FL)", t.Name, statusLabel(t.Status), t.City)
+}
+
+// trailDetailDescription produces a status-bearing meta description that
+// summarizes vote totals so snippets stay informative as conditions change.
+func trailDetailDescription(t models.TrailWithStatus) string {
+	switch {
+	case t.TotalVotes == 0:
+		return fmt.Sprintf("Live community status, weather, and details for %s mountain bike trail in %s, FL. No reports yet today — be the first to vote.", t.Name, t.City)
+	case t.Status == models.StatusOpen:
+		return fmt.Sprintf("%s in %s, FL is currently rideable per riders today (%d open / %d closed votes). Live status, weather, and trail details.", t.Name, t.City, t.OpenVotes, t.ClosedVotes)
+	case t.Status == models.StatusClosed:
+		return fmt.Sprintf("%s in %s, FL is currently reported closed by riders today (%d closed / %d open votes). Live status, weather, and trail details.", t.Name, t.City, t.ClosedVotes, t.OpenVotes)
+	default:
+		return fmt.Sprintf("Mixed reports today for %s in %s, FL (%d open / %d closed votes). Live status, weather, and trail details.", t.Name, t.City, t.OpenVotes, t.ClosedVotes)
+	}
+}
+
+func trailDetailJSONLD(t models.TrailWithStatus) string {
+	status := statusLabel(t.Status)
 	return fmt.Sprintf(`<script type="application/ld+json">{
 		"@context": "https://schema.org",
 		"@type": "SportsActivityLocation",
 		"name": %q,
 		"description": %q,
+		"url": "https://sftrails.info/trail/%s",
 		"address": {"@type":"PostalAddress","addressLocality":%q,"addressRegion":"FL","addressCountry":"US"},
 		"geo": {"@type":"GeoCoordinates","latitude":%f,"longitude":%f},
 		"publicAccess": true,
-		"additionalProperty": {"@type":"PropertyValue","name":"Trail Status","value":%q}
-	}</script>`, t.Name, t.Description, t.City, t.Latitude, t.Longitude, status)
+		"sport": "Mountain Biking",
+		"additionalProperty": {"@type":"PropertyValue","name":"Trail Status","value":%q},
+		"interactionStatistic": [
+			{"@type":"InteractionCounter","interactionType":{"@type":"VoteAction","name":"Rideable"},"userInteractionCount":%d},
+			{"@type":"InteractionCounter","interactionType":{"@type":"VoteAction","name":"Closed"},"userInteractionCount":%d}
+		]
+	}</script>`,
+		t.Name, t.Description, slugify(t.Name), t.City,
+		t.Latitude, t.Longitude, status,
+		t.OpenVotes, t.ClosedVotes,
+	)
 }
 
-templ TrailDetailPage(trail models.TrailWithStatus) {
+// trailBreadcrumbJSONLD emits BreadcrumbList structured data so search engines
+// can render breadcrumb-style result snippets ("sftrails.info > Trails > Foo").
+func trailBreadcrumbJSONLD(t models.TrailWithStatus) string {
+	return fmt.Sprintf(`<script type="application/ld+json">{
+		"@context": "https://schema.org",
+		"@type": "BreadcrumbList",
+		"itemListElement": [
+			{"@type":"ListItem","position":1,"name":"All Trails","item":"https://sftrails.info/"},
+			{"@type":"ListItem","position":2,"name":%q,"item":"https://sftrails.info/trail/%s"}
+		]
+	}</script>`, t.Name, slugify(t.Name))
+}
+
+templ TrailDetailPage(trail models.TrailWithStatus, others []models.TrailWithStatus) {
 	@LayoutPath(
-		fmt.Sprintf("%s - SF Trails", trail.Name),
-		fmt.Sprintf("Current community-reported status, weather, and details for %s mountain bike trail in %s, FL.", trail.Name, trail.City),
+		trailDetailTitle(trail),
+		trailDetailDescription(trail),
 		"/trail/"+slugify(trail.Name),
 	) {
 		@templ.Raw(trailDetailJSONLD(trail))
-		<nav class="mb-4 text-sm">
-			<a href="/" class="text-blue-400 hover:underline">← All trails</a>
+		@templ.Raw(trailBreadcrumbJSONLD(trail))
+		<nav class="mb-4 text-sm" aria-label="Breadcrumb">
+			<ol class="flex gap-1 text-blue-400">
+				<li><a href="/" class="hover:underline">All trails</a></li>
+				<li class="text-gray-500" aria-hidden="true">/</li>
+				<li class="text-gray-300" aria-current="page">{ trail.Name }</li>
+			</ol>
 		</nav>
+		<h1 class="text-2xl font-bold text-white mb-1">{ trail.Name }</h1>
+		<p class="text-gray-400 mb-4 text-sm">Mountain bike trail in { trail.City }, Florida — community-reported status: <strong class="text-white">{ statusLabel(trail.Status) }</strong></p>
 		<section aria-label="Trail detail">
 			@TrailCard(trail)
 		</section>
+		if len(others) > 0 {
+			<section aria-labelledby="other-trails-heading" class="mt-8">
+				<h2 id="other-trails-heading" class="text-lg font-semibold text-white mb-3">Other South Florida trails</h2>
+				<ul class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+					for _, o := range others {
+						<li>
+							<a href={ templ.SafeURL("/trail/" + slugify(o.Name)) } class="block bg-gray-800 hover:bg-gray-700 rounded-lg px-3 py-2 text-sm">
+								<span class="text-white font-medium">{ o.Name }</span>
+								<span class="text-gray-400"> · { o.City }</span>
+							</a>
+						</li>
+					}
+				</ul>
+			</section>
+		}
 	}
 }

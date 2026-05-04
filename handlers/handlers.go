@@ -113,14 +113,36 @@ func (h *Handler) HandleTrailDetail(w http.ResponseWriter, r *http.Request) {
 		trail := trails[i]
 		AttachDistanceAndSort([]models.TrailWithStatus{trail}, ReadUserLocation(r))
 		h.attachWeatherOne(&trail)
+		others := otherTrails(trails, i, 6)
 		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 		w.Header().Add("Link", fmt.Sprintf(`</trail/%s.md>; rel="alternate"; type="text/markdown"`, slug))
-		if err := templates.TrailDetailPage(trail).Render(r.Context(), w); err != nil {
+		w.Header().Add("Link", `</>; rel="up"`)
+		if err := templates.TrailDetailPage(trail, others).Render(r.Context(), w); err != nil {
 			slog.Error("failed to render trail detail", "slug", slug, "error", err)
 		}
 		return
 	}
 	http.NotFound(w, r)
+}
+
+// otherTrails returns up to n trails other than the one at idx, preserving the
+// caller's slice order so distance-sorted callers surface the nearest peers
+// first. The returned slice does not alias the input.
+func otherTrails(trails []models.TrailWithStatus, idx, n int) []models.TrailWithStatus {
+	if n <= 0 || len(trails) <= 1 {
+		return nil
+	}
+	out := make([]models.TrailWithStatus, 0, n)
+	for i, t := range trails {
+		if i == idx {
+			continue
+		}
+		out = append(out, t)
+		if len(out) >= n {
+			break
+		}
+	}
+	return out
 }
 
 func (h *Handler) HandleTrailsList(w http.ResponseWriter, r *http.Request) {
@@ -306,6 +328,13 @@ func (h *Handler) HandleSitemap(w http.ResponseWriter, r *http.Request) {
 	} else {
 		slog.Warn("sitemap: trail lookup failed; serving index-only sitemap", "error", err)
 	}
+
+	// Reference docs and machine-readable feeds. These are stable artifacts
+	// that change rarely but should be discoverable for both search and AI
+	// crawlers walking the sitemap.
+	fmt.Fprintf(&b, "  <url>\n    <loc>https://sftrails.info/llms.txt</loc>\n    <lastmod>%s</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.5</priority>\n  </url>\n", lastmod)
+	fmt.Fprintf(&b, "  <url>\n    <loc>https://sftrails.info/llms-full.txt</loc>\n    <lastmod>%s</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.5</priority>\n  </url>\n", lastmod)
+	fmt.Fprintf(&b, "  <url>\n    <loc>https://sftrails.info/api/trails</loc>\n    <lastmod>%s</lastmod>\n    <changefreq>hourly</changefreq>\n    <priority>0.4</priority>\n  </url>\n", lastmod)
 
 	b.WriteString(`</urlset>`)
 	if _, err := w.Write([]byte(b.String())); err != nil {
