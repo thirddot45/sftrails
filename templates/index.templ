@@ -84,18 +84,75 @@ func trailsItemListJSONLD(trails []models.TrailWithStatus) string {
 	}</script>`, len(trails), strings.Join(items, ","))
 }
 
+// faqEntries pairs visible FAQ copy with FAQPage structured data so a single
+// edit keeps both surfaces in sync.
+type faqEntry struct {
+	Q string
+	A string
+}
+
+var indexFAQs = []faqEntry{
+	{
+		Q: "Where can I go mountain biking in South Florida?",
+		A: "South Florida mountain biking spans Miami-Dade, Broward, Palm Beach, and Martin counties. Popular spots include Markham Park (Sunrise), Oleta River State Park (North Miami Beach), Virginia Key (Key Biscayne), Quiet Waters Park (Deerfield Beach), Amelia Earhart Park (Hialeah), Tree Tops Park (Davie), Dyer Park (West Palm Beach), Pinehurst Park (Greenacres), West Delray Regional Park (Delray Beach), Riverbend Park (Jupiter), Jonathan Dickinson State Park (Hobe Sound), and Halpatiokee Regional Park (Stuart).",
+	},
+	{
+		Q: "How do I check South Florida mountain bike trail status?",
+		A: "SF Trails shows live, community-reported trail status for every tracked South Florida MTB trail. Each trail is marked Rideable, Closed, or Unknown based on rider votes from the last few hours. Open the home page, find the trail you want, and the colored status bar tells you whether it is rideable today.",
+	},
+	{
+		Q: "How is trail status determined?",
+		A: "Riders vote Rideable or Closed on each trail. We require at least three votes within a 4-hour window before declaring a status; otherwise we fall back to a 12-hour window. Votes reset daily at midnight so the status always reflects current conditions, not yesterday's reports.",
+	},
+	{
+		Q: "When do South Florida MTB trails typically close?",
+		A: "Most South Florida singletrack closes after heavy rain because the soil stays soft and riding causes ruts. Some parks also close at sunset or for maintenance days. Each trail page shows current weather alongside the community-reported status so you can plan around storms.",
+	},
+	{
+		Q: "Is SF Trails free?",
+		A: "Yes. SF Trails is a free, community-run resource. There is no signup, no app, and no ads — just open the site, check the status, and vote when you ride.",
+	},
+}
+
+func indexFAQJSONLD() string {
+	var items []string
+	for _, f := range indexFAQs {
+		items = append(items, fmt.Sprintf(`{"@type":"Question","name":%q,"acceptedAnswer":{"@type":"Answer","text":%q}}`, f.Q, f.A))
+	}
+	return fmt.Sprintf(`<script type="application/ld+json">{
+		"@context": "https://schema.org",
+		"@type": "FAQPage",
+		"mainEntity": [%s]
+	}</script>`, strings.Join(items, ","))
+}
+
 templ IndexPage(trails []models.TrailWithStatus, sortLabel string) {
-	@Layout("SF Trails - South Florida Mountain Bike Trail Status", "Check real-time trail conditions for South Florida mountain bike trails. Community-driven status reports for Markham Park, Oleta River, Virginia Key, and more.") {
+	@Layout(
+		"SF Trails — South Florida Mountain Bike Trail Status (Live)",
+		"Live, community-reported South Florida mountain biking trail status. Check whether MTB trails are rideable today across Miami, Fort Lauderdale, Boca Raton, West Palm Beach, Jupiter, and Stuart — Markham Park, Oleta River, Virginia Key, Quiet Waters, Tree Tops, Dyer Park, Riverbend, Jonathan Dickinson, and more.",
+	) {
 		@templ.Raw(trailsJSONLDScript(trails))
 		@templ.Raw(trailsItemListJSONLD(trails))
-		<section aria-label="Trail status instructions" class="mb-6">
-			<p class="text-gray-300">Click <strong>Rideable</strong> or <strong>Closed</strong> to report current trail conditions. Status updates every 60 seconds.</p>
+		@templ.Raw(indexFAQJSONLD())
+		<section aria-label="About SF Trails" class="mb-6">
+			<p class="text-gray-300">Live <strong>South Florida mountain biking trail status</strong>, reported by riders. Click <strong>Rideable</strong> or <strong>Closed</strong> on any trail to update its current condition. Status refreshes every 60 seconds.</p>
 		</section>
 		<section aria-label="Trail sort controls">
 			@SortControls(sortLabel)
 		</section>
 		<section aria-label="Trail listings">
 			@TrailsList(trails)
+		</section>
+		<section aria-labelledby="faq-heading" class="mt-10">
+			<h2 id="faq-heading" class="text-xl font-semibold text-white mb-3">South Florida mountain biking FAQ</h2>
+			<div class="space-y-2">
+				for _, f := range indexFAQs {
+					<details class="bg-gray-800 rounded-lg px-4 py-3">
+						<summary class="cursor-pointer text-white font-medium">{ f.Q }</summary>
+						<p class="text-gray-300 mt-2 text-sm leading-relaxed">{ f.A }</p>
+					</details>
+				}
+			</div>
 		</section>
 	}
 }

@@ -46,16 +46,18 @@ func trailDetailTitle(t models.TrailWithStatus) string {
 
 // trailDetailDescription produces a status-bearing meta description that
 // summarizes vote totals so snippets stay informative as conditions change.
+// Each variant repeats the South Florida mountain biking framing so per-trail
+// pages also rank for the broader regional intent.
 func trailDetailDescription(t models.TrailWithStatus) string {
 	switch {
 	case t.TotalVotes == 0:
-		return fmt.Sprintf("Live community status, weather, and details for %s mountain bike trail in %s, FL. No reports yet today — be the first to vote.", t.Name, t.City)
+		return fmt.Sprintf("Live trail status, weather, and details for %s — a South Florida mountain biking trail in %s, FL. No rider reports yet today; be the first to vote on whether it is rideable.", t.Name, t.City)
 	case t.Status == models.StatusOpen:
-		return fmt.Sprintf("%s in %s, FL is currently rideable per riders today (%d open / %d closed votes). Live status, weather, and trail details.", t.Name, t.City, t.OpenVotes, t.ClosedVotes)
+		return fmt.Sprintf("%s in %s, FL is currently rideable per South Florida mountain bikers today (%d open / %d closed votes). Live trail status, weather, and conditions.", t.Name, t.City, t.OpenVotes, t.ClosedVotes)
 	case t.Status == models.StatusClosed:
-		return fmt.Sprintf("%s in %s, FL is currently reported closed by riders today (%d closed / %d open votes). Live status, weather, and trail details.", t.Name, t.City, t.ClosedVotes, t.OpenVotes)
+		return fmt.Sprintf("%s in %s, FL is currently reported closed by riders today (%d closed / %d open votes). Live South Florida mountain bike trail status, weather, and conditions.", t.Name, t.City, t.ClosedVotes, t.OpenVotes)
 	default:
-		return fmt.Sprintf("Mixed reports today for %s in %s, FL (%d open / %d closed votes). Live status, weather, and trail details.", t.Name, t.City, t.OpenVotes, t.ClosedVotes)
+		return fmt.Sprintf("Mixed rider reports today for %s in %s, FL (%d open / %d closed votes). Live South Florida MTB trail status, weather, and conditions.", t.Name, t.City, t.OpenVotes, t.ClosedVotes)
 	}
 }
 

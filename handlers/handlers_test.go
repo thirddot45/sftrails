@@ -536,6 +536,70 @@ func TestIndexHasItemListJSONLD(t *testing.T) {
 	}
 }
 
+func TestKeywordsMetaPresent(t *testing.T) {
+	h := setupTestHandler(t)
+	req := httptest.NewRequest("GET", "/", nil)
+	w := httptest.NewRecorder()
+	h.HandleIndex(w, req)
+
+	body := w.Body.String()
+	if !strings.Contains(body, `<meta name="keywords"`) {
+		t.Fatal("Expected <meta name=\"keywords\"> on layout")
+	}
+	for _, kw := range []string{"south florida mountain biking", "mountain bike trail status", "miami mountain biking", "florida singletrack"} {
+		if !strings.Contains(body, kw) {
+			t.Errorf("Expected keywords meta to contain %q", kw)
+		}
+	}
+}
+
+func TestIndexFAQPage(t *testing.T) {
+	h := setupTestHandler(t)
+	req := httptest.NewRequest("GET", "/", nil)
+	w := httptest.NewRecorder()
+	h.HandleIndex(w, req)
+
+	body := w.Body.String()
+	if !strings.Contains(body, `"@type": "FAQPage"`) {
+		t.Error("Expected FAQPage JSON-LD on index")
+	}
+	if !strings.Contains(body, "South Florida mountain biking FAQ") {
+		t.Error("Expected visible FAQ heading on index")
+	}
+	for _, q := range []string{
+		"Where can I go mountain biking in South Florida?",
+		"How do I check South Florida mountain bike trail status?",
+	} {
+		if !strings.Contains(body, q) {
+			t.Errorf("Expected FAQ to contain question %q", q)
+		}
+	}
+}
+
+func TestIndexBroadenedDescription(t *testing.T) {
+	h := setupTestHandler(t)
+	req := httptest.NewRequest("GET", "/", nil)
+	w := httptest.NewRecorder()
+	h.HandleIndex(w, req)
+
+	body := w.Body.String()
+	// The broadened meta description should mention status, South Florida
+	// mountain biking, and a spread of metro areas so it ranks for the
+	// regional intent in addition to per-trail queries.
+	for _, needle := range []string{
+		"South Florida mountain biking trail status",
+		"Miami",
+		"Fort Lauderdale",
+		"West Palm Beach",
+		"Jupiter",
+		"Stuart",
+	} {
+		if !strings.Contains(body, needle) {
+			t.Errorf("Expected broadened index copy to contain %q", needle)
+		}
+	}
+}
+
 func TestHandleTrailDetailNotFound(t *testing.T) {
 	h := setupTestHandler(t)
 	mux := http.NewServeMux()

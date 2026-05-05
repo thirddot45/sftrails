@@ -2,7 +2,13 @@
 
 > Community-driven South Florida mountain bike trail status tracker
 
-SF Trails is a web application that provides real-time trail status information for mountain bike trails in South Florida. Trail statuses are determined by community votes -- riders report whether trails are currently rideable (open) or closed.
+SF Trails (sftrails.info) is a free web application that provides live, community-reported trail status for South Florida mountain biking. Riders vote on whether each trail is currently rideable (open) or closed, and the site aggregates those votes into a real-time status badge per trail.
+
+It answers questions like "is [trail] open today?", "what South Florida MTB trails are rideable right now?", and "are mountain bike trails near Miami / Fort Lauderdale / Boca Raton / West Palm Beach / Jupiter / Stuart open after rain?".
+
+## Coverage
+
+SF Trails covers the South Florida mountain biking corridor across Miami-Dade, Broward, Palm Beach, and Martin counties — including the Miami, Fort Lauderdale, Hollywood, Boca Raton, Delray Beach, West Palm Beach, Jupiter, Hobe Sound, and Stuart areas.
 
 ## How It Works
 

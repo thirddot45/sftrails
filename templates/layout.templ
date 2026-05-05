@@ -15,6 +15,12 @@ templ Layout(title string, description string) {
 	}
 }
 
+// seoKeywords is the shared keyword set surfaced via <meta name="keywords">.
+// Modern search engines mostly ignore the keywords meta, but Yandex, Bing's
+// internal signals, and several AI crawlers still read it. Keep the list
+// natural-language and aligned with copy that appears elsewhere on the page.
+const seoKeywords = "south florida mountain biking, south florida mtb, mountain bike trail status, mtb trail conditions, are trails open, rideable trails, miami mountain biking, fort lauderdale mountain biking, west palm beach mtb, jupiter mtb, stuart mtb, florida singletrack, community trail status, trail closures florida"
+
 templ LayoutPath(title string, description string, canonicalPath string) {
 	<!DOCTYPE html>
 	<html lang="en">
@@ -23,6 +29,7 @@ templ LayoutPath(title string, description string, canonicalPath string) {
 		<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 		<title>{ title }</title>
 		<meta name="description" content={ description }/>
+		<meta name="keywords" content={ seoKeywords }/>
 		<link rel="canonical" href={ "https://sftrails.info" + canonicalPath }/>
 		<link rel="alternate" type="text/markdown" href={ markdownAltHref(canonicalPath) }/>
 		<!-- Open Graph -->
