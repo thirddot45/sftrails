@@ -88,6 +88,7 @@ func main() {
 	mux.Handle("GET /trails-list", md(http.HandlerFunc(h.HandleTrailsList)))
 	mux.Handle("POST /vote", rl.Middleware(md(http.HandlerFunc(h.HandleVote))))
 	mux.Handle("GET /status", md(http.HandlerFunc(h.HandleStatus)))
+	mux.Handle("GET /metrics", handlers.BasicAuthMiddleware("SF Trails Metrics", md(http.HandlerFunc(h.HandleMetrics))))
 	mux.HandleFunc("GET /.well-known/http-message-signatures-directory", h.HandleSignatureDirectory)
 	mux.HandleFunc("GET /.well-known/agent-skills/index.json", h.HandleAgentSkillsIndex)
 	mux.HandleFunc("GET /.well-known/agent-skills/{path...}", h.HandleAgentSkillFile)
@@ -105,7 +106,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:              ":8080",
-		Handler:           handlers.LoggingMiddleware(handlers.MarkdownSuffixMiddleware(mux)),
+		Handler:           handlers.LoggingMiddleware(handlers.MarkdownSuffixMiddleware(handlers.MetricsMiddleware(database)(mux))),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      15 * time.Second,

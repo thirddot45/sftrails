@@ -76,6 +76,33 @@ type TrailsAPIResponse struct {
 	GeneratedAt string             `json:"generated_at"`
 }
 
+// Site metrics types for the (password-protected) metrics dashboard.
+// These intentionally carry no IP or personally identifying information.
+
+// DayCount holds traffic for a single calendar day (UTC).
+type DayCount struct {
+	Date   string // YYYY-MM-DD
+	Views  int
+	Unique int
+}
+
+// PathCount holds the view count for a single path.
+type PathCount struct {
+	Path  string
+	Views int
+}
+
+// SiteMetrics is an aggregate view of site traffic. No IP information is
+// included by design.
+type SiteMetrics struct {
+	TotalViews   int
+	UniqueVisits int
+	ViewsToday   int
+	UniqueToday  int
+	Days         []DayCount  // most recent last
+	TopPaths     []PathCount // highest views first
+}
+
 func TrailToAPI(t TrailWithStatus) TrailAPIResponse {
 	return TrailAPIResponse{
 		ID:          t.ID,
