@@ -24,6 +24,19 @@ make build
 make test
 ```
 
+## Metrics
+
+A privacy-friendly traffic dashboard is available at `/metrics`, protected by
+HTTP Basic Auth (any username, password is checked). It shows total visits,
+unique visitors, today's counts, a 7-day trend, and top pages. No IP addresses
+or personal data are stored or displayed — unique visitors are counted via a
+salted, one-way hash.
+
+Configure via environment variables:
+
+- `METRICS_PASSWORD` — dashboard password (default: built-in)
+- `METRICS_SALT` — salt for the visitor hash (recommended in production)
+
 ## Tech Stack
 
 - **Go** with `net/http` standard library router
