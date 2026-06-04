@@ -1,7 +1,11 @@
 FROM golang:1-alpine AS build
 
 RUN apk add --no-cache ca-certificates
-RUN go install github.com/a-h/templ/cmd/templ@latest
+# Pin the templ generator to the runtime version in go.mod. Using @latest can
+# pull a generator that emits code referencing newer runtime APIs (e.g.
+# templ.ResolveAttributeValue), which fails to compile against the pinned
+# github.com/a-h/templ runtime. Keep this in sync with go.mod.
+RUN go install github.com/a-h/templ/cmd/templ@v0.3.977
 
 WORKDIR /src
 COPY go.mod go.sum ./

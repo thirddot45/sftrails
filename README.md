@@ -24,6 +24,25 @@ make build
 make test
 ```
 
+## Metrics
+
+A privacy-friendly traffic dashboard is available at `/metrics`, protected by
+HTTP Basic Auth (both username and password are checked). It shows total visits,
+unique visitors, today's counts, a 7-day trend, and top pages. No IP addresses
+or personal data are stored or displayed — unique visitors are counted via a
+salted, one-way hash.
+
+The dashboard ships with **no default credentials** and fails closed: if
+`METRICS_USER` or `METRICS_PASSWORD` is unset, `/metrics` returns `503` and is
+unreachable. Set both to enable it.
+
+Configure via environment variables:
+
+- `METRICS_USER` — dashboard username (required to enable the dashboard)
+- `METRICS_PASSWORD` — dashboard password (required to enable the dashboard)
+- `METRICS_SALT` — salt for the visitor hash (recommended in production; a random
+  per-process salt is used if unset, so unique counts reset on restart)
+
 ## Tech Stack
 
 - **Go** with `net/http` standard library router
