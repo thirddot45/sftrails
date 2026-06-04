@@ -16,6 +16,10 @@ import (
 	"sftrails/templates"
 )
 
+// defaultMetricsUser is the username for the metrics dashboard. It can be
+// overridden via the METRICS_USER environment variable.
+const defaultMetricsUser = "nimda"
+
 // defaultMetricsPassword guards the metrics dashboard. It can be overridden via
 // the METRICS_PASSWORD environment variable.
 const defaultMetricsPassword = "!m00nsh0t!"
@@ -24,6 +28,13 @@ const defaultMetricsPassword = "!m00nsh0t!"
 // reversed back to an IP address. It defaults to a fixed value (stable unique
 // counts across restarts) but should be set via METRICS_SALT in production.
 const defaultMetricsSalt = "sftrails-metrics-v1"
+
+func metricsUser() string {
+	if u := os.Getenv("METRICS_USER"); u != "" {
+		return u
+	}
+	return defaultMetricsUser
+}
 
 func metricsPassword() string {
 	if p := os.Getenv("METRICS_PASSWORD"); p != "" {
@@ -102,14 +113,18 @@ func MetricsMiddleware(database *sql.DB) func(http.Handler) http.Handler {
 	}
 }
 
-// BasicAuthMiddleware protects a handler with HTTP Basic Auth. Any username is
-// accepted; only the password is checked (against METRICS_PASSWORD, defaulting
-// to the built-in value). Comparison is constant-time.
+// BasicAuthMiddleware protects a handler with HTTP Basic Auth. Both the username
+// (METRICS_USER, defaulting to the built-in value) and password (METRICS_PASSWORD)
+// are checked. Comparisons are constant-time and both run regardless of outcome
+// to avoid leaking which field was wrong via timing.
 func BasicAuthMiddleware(realm string, next http.Handler) http.Handler {
-	want := metricsPassword()
+	wantUser := metricsUser()
+	wantPass := metricsPassword()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, pass, ok := r.BasicAuth()
-		if !ok || subtle.ConstantTimeCompare([]byte(pass), []byte(want)) != 1 {
+		user, pass, ok := r.BasicAuth()
+		userOK := subtle.ConstantTimeCompare([]byte(user), []byte(wantUser)) == 1
+		passOK := subtle.ConstantTimeCompare([]byte(pass), []byte(wantPass)) == 1
+		if !ok || !userOK || !passOK {
 			w.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`", charset="UTF-8"`)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return

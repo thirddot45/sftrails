@@ -43,13 +43,27 @@ func TestBasicAuthMiddlewareRejectsWrongPassword(t *testing.T) {
 	}
 }
 
-func TestBasicAuthMiddlewareAcceptsCorrectPassword(t *testing.T) {
+func TestBasicAuthMiddlewareRejectsWrongUsername(t *testing.T) {
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	h := BasicAuthMiddleware("test", next)
+
+	req := httptest.NewRequest("GET", "/metrics", nil)
+	req.SetBasicAuth("wronguser", defaultMetricsPassword)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("Expected 401 for wrong username, got %d", w.Code)
+	}
+}
+
+func TestBasicAuthMiddlewareAcceptsCorrectCredentials(t *testing.T) {
 	called := false
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { called = true })
 	h := BasicAuthMiddleware("test", next)
 
 	req := httptest.NewRequest("GET", "/metrics", nil)
-	req.SetBasicAuth("anyuser", defaultMetricsPassword)
+	req.SetBasicAuth(defaultMetricsUser, defaultMetricsPassword)
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 
@@ -57,7 +71,7 @@ func TestBasicAuthMiddlewareAcceptsCorrectPassword(t *testing.T) {
 		t.Errorf("Expected 200, got %d", w.Code)
 	}
 	if !called {
-		t.Error("Expected next handler to be called with correct password")
+		t.Error("Expected next handler to be called with correct credentials")
 	}
 }
 
