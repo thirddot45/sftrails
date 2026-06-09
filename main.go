@@ -77,6 +77,20 @@ func main() {
 		go ws.StartScheduler(ctx)
 	}
 
+	// Configure which upstream addresses may set X-Forwarded-For / X-Real-IP.
+	// Unset means no proxy is trusted and the direct connection IP is used for
+	// rate limiting and vote dedup. Set TRUSTED_PROXIES (comma-separated CIDRs
+	// or IPs) to your load balancer/reverse proxy when deployed behind one.
+	if spec := os.Getenv("TRUSTED_PROXIES"); spec != "" {
+		if err := handlers.SetTrustedProxies(spec); err != nil {
+			slog.Error("invalid TRUSTED_PROXIES", "error", err)
+			os.Exit(1)
+		}
+		slog.Info("trusting forwarding headers from configured proxies", "spec", spec)
+	} else {
+		slog.Warn("TRUSTED_PROXIES not set: ignoring X-Forwarded-For/X-Real-IP and using the direct connection IP")
+	}
+
 	h := handlers.NewHandler(database, ws)
 	rl := handlers.NewRateLimiter(30, time.Minute)
 
@@ -106,7 +120,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:              ":8080",
-		Handler:           handlers.LoggingMiddleware(handlers.MarkdownSuffixMiddleware(handlers.MetricsMiddleware(database)(mux))),
+		Handler:           handlers.SecurityHeadersMiddleware(handlers.LoggingMiddleware(handlers.MarkdownSuffixMiddleware(handlers.MetricsMiddleware(database)(mux)))),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      15 * time.Second,

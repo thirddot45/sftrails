@@ -25,25 +25,6 @@ func slugify(s string) string {
 	return strings.TrimRight(b.String(), "-")
 }
 
-func trailDetailJSONLD(t models.TrailWithStatus) string {
-	status := "Unknown"
-	if t.Status == models.StatusOpen {
-		status = "Open"
-	} else if t.Status == models.StatusClosed {
-		status = "Closed"
-	}
-	return fmt.Sprintf(`<script type="application/ld+json">{
-		"@context": "https://schema.org",
-		"@type": "SportsActivityLocation",
-		"name": %q,
-		"description": %q,
-		"address": {"@type":"PostalAddress","addressLocality":%q,"addressRegion":"FL","addressCountry":"US"},
-		"geo": {"@type":"GeoCoordinates","latitude":%f,"longitude":%f},
-		"publicAccess": true,
-		"additionalProperty": {"@type":"PropertyValue","name":"Trail Status","value":%q}
-	}</script>`, t.Name, t.Description, t.City, t.Latitude, t.Longitude, status)
-}
-
 templ TrailDetailPage(trail models.TrailWithStatus) {
 	@LayoutPath(
 		fmt.Sprintf("%s - SF Trails", trail.Name),

@@ -821,32 +821,61 @@ func TestMarkdownNegotiationMultipleAccept(t *testing.T) {
 func TestGetIP(t *testing.T) {
 	tests := []struct {
 		name     string
+		trusted  string
 		headers  map[string]string
 		remote   string
 		expected string
 	}{
 		{
-			name:     "X-Forwarded-For",
+			name:     "no trusted proxies ignores X-Forwarded-For",
+			trusted:  "",
 			headers:  map[string]string{"X-Forwarded-For": "1.2.3.4, 5.6.7.8"},
 			remote:   "127.0.0.1:1234",
-			expected: "1.2.3.4",
-		},
-		{
-			name:     "X-Real-IP",
-			headers:  map[string]string{"X-Real-IP": "1.2.3.4"},
-			remote:   "127.0.0.1:1234",
-			expected: "1.2.3.4",
-		},
-		{
-			name:     "RemoteAddr",
-			headers:  map[string]string{},
-			remote:   "127.0.0.1:1234",
 			expected: "127.0.0.1",
+		},
+		{
+			name:     "no trusted proxies ignores X-Real-IP",
+			trusted:  "",
+			headers:  map[string]string{"X-Real-IP": "1.2.3.4"},
+			remote:   "203.0.113.9:1234",
+			expected: "203.0.113.9",
+		},
+		{
+			name:     "trusted proxy honors rightmost untrusted X-Forwarded-For",
+			trusted:  "127.0.0.1",
+			headers:  map[string]string{"X-Forwarded-For": "1.2.3.4, 5.6.7.8"},
+			remote:   "127.0.0.1:1234",
+			expected: "5.6.7.8",
+		},
+		{
+			name:     "trusted proxy skips chained trusted proxies",
+			trusted:  "127.0.0.1, 10.0.0.0/8",
+			headers:  map[string]string{"X-Forwarded-For": "1.2.3.4, 10.1.2.3"},
+			remote:   "127.0.0.1:1234",
+			expected: "1.2.3.4",
+		},
+		{
+			name:     "trusted proxy falls back to X-Real-IP",
+			trusted:  "127.0.0.1",
+			headers:  map[string]string{"X-Real-IP": "9.9.9.9"},
+			remote:   "127.0.0.1:1234",
+			expected: "9.9.9.9",
+		},
+		{
+			name:     "untrusted remote with trusted list configured ignores header",
+			trusted:  "10.0.0.0/8",
+			headers:  map[string]string{"X-Forwarded-For": "1.2.3.4"},
+			remote:   "203.0.113.5:1234",
+			expected: "203.0.113.5",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if err := SetTrustedProxies(tt.trusted); err != nil {
+				t.Fatalf("SetTrustedProxies(%q) error: %v", tt.trusted, err)
+			}
+			t.Cleanup(func() { SetTrustedProxies("") })
 			req := httptest.NewRequest("GET", "/", nil)
 			req.RemoteAddr = tt.remote
 			for k, v := range tt.headers {

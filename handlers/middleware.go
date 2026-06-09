@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -99,17 +100,104 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// trustedProxies holds the networks whose forwarding headers we trust.
+// Populated from the TRUSTED_PROXIES env var at startup via SetTrustedProxies.
+// When empty, X-Forwarded-For / X-Real-IP are ignored and the direct
+// connection address is used — the safe default, since those headers are
+// trivially spoofable by any client and gate both rate limiting and vote
+// dedup.
+var trustedProxies []*net.IPNet
+
+// SetTrustedProxies configures which upstream addresses may set forwarding
+// headers. spec is a comma-separated list of CIDRs or bare IPs (e.g.
+// "10.0.0.0/8, 172.18.0.1"). An empty spec clears the list so no forwarding
+// headers are trusted.
+func SetTrustedProxies(spec string) error {
+	var nets []*net.IPNet
+	for _, part := range strings.Split(spec, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if !strings.Contains(part, "/") {
+			if strings.Contains(part, ":") {
+				part += "/128"
+			} else {
+				part += "/32"
+			}
+		}
+		_, n, err := net.ParseCIDR(part)
+		if err != nil {
+			return fmt.Errorf("invalid trusted proxy %q: %w", part, err)
+		}
+		nets = append(nets, n)
+	}
+	trustedProxies = nets
+	return nil
+}
+
+func isTrustedProxy(ip string) bool {
+	parsed := net.ParseIP(ip)
+	if parsed == nil {
+		return false
+	}
+	for _, n := range trustedProxies {
+		if n.Contains(parsed) {
+			return true
+		}
+	}
+	return false
+}
+
+// GetIP returns the client IP used for rate limiting and vote dedup.
+// Forwarding headers are honored only when the direct connection comes from a
+// configured trusted proxy; otherwise they are ignored to prevent spoofing.
+// When trusted, X-Forwarded-For is walked right-to-left and the first address
+// that is not itself a trusted proxy is returned (the real client behind the
+// proxy chain), falling back to X-Real-IP and then the connection address.
 func GetIP(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	if !isTrustedProxy(host) {
+		return host
+	}
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 		parts := strings.Split(xff, ",")
-		return strings.TrimSpace(parts[0])
+		for i := len(parts) - 1; i >= 0; i-- {
+			ip := strings.TrimSpace(parts[i])
+			if ip == "" || isTrustedProxy(ip) {
+				continue
+			}
+			return ip
+		}
 	}
 	if xri := r.Header.Get("X-Real-IP"); xri != "" {
 		return strings.TrimSpace(xri)
 	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
 	return host
+}
+
+// SecurityHeadersMiddleware sets conservative security headers on every
+// response. Scripts and styles are served same-origin (see static/vendor), so
+// the CSP needs no third-party origins; 'unsafe-inline' is retained for the
+// inline event handlers, <style> block, and JSON-LD the templates emit. The
+// client-side ZIP lookup in sort.js talks to api.zippopotam.us.
+func SecurityHeadersMiddleware(next http.Handler) http.Handler {
+	const csp = "default-src 'self'; " +
+		"script-src 'self' 'unsafe-inline'; " +
+		"style-src 'self' 'unsafe-inline'; " +
+		"img-src 'self' data:; " +
+		"connect-src 'self' https://api.zippopotam.us; " +
+		"object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("Content-Security-Policy", csp)
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("X-Frame-Options", "DENY")
+		h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		next.ServeHTTP(w, r)
+	})
 }

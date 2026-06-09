@@ -43,6 +43,31 @@ Configure via environment variables:
 - `METRICS_SALT` — salt for the visitor hash (recommended in production; a random
   per-process salt is used if unset, so unique counts reset on restart)
 
+## Deployment & Security
+
+### Trusted proxies
+
+Client IPs gate rate limiting and vote deduplication, so the app must not
+blindly trust forwarding headers. `X-Forwarded-For` / `X-Real-IP` are honored
+**only** when the direct connection comes from an address you list in
+`TRUSTED_PROXIES` (comma-separated CIDRs or IPs, e.g.
+`TRUSTED_PROXIES=10.0.0.0/8,172.18.0.1`). When unset, those headers are ignored
+and the direct connection IP is used.
+
+- **Behind a reverse proxy / load balancer:** set `TRUSTED_PROXIES` to its
+  address(es), or every request will appear to come from the proxy and share a
+  single rate-limit/vote bucket.
+- **Directly exposed:** leave it unset.
+
+### Security headers
+
+Every response carries a Content-Security-Policy, `X-Content-Type-Options`,
+`X-Frame-Options`, `Referrer-Policy`, and `Strict-Transport-Security`. The CSP
+allows only same-origin scripts/styles; HTMX and Tailwind are vendored under
+`static/vendor/` (rather than loaded from a third-party CDN) so a CDN compromise
+can't inject script. The client-side ZIP lookup is allowed to reach
+`api.zippopotam.us`.
+
 ## Tech Stack
 
 - **Go** with `net/http` standard library router
