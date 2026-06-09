@@ -138,7 +138,17 @@ func (h *Handler) HandleTrailsList(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// maxVoteBodyBytes caps the /vote request body. The form is three short
+// fields; 4 KB leaves generous headroom while preventing memory abuse.
+const maxVoteBodyBytes = 4 << 10
+
+// maxFingerprintLen caps the client-supplied fingerprint. The bundled
+// fingerprint.js produces an 8-char hex hash; 64 allows alternative clients
+// without letting arbitrary payloads into the votes table.
+const maxFingerprintLen = 64
+
 func (h *Handler) HandleVote(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxVoteBodyBytes)
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
@@ -147,6 +157,10 @@ func (h *Handler) HandleVote(w http.ResponseWriter, r *http.Request) {
 	trailIDStr := r.FormValue("trail_id")
 	voteStr := r.FormValue("vote")
 	fingerprint := r.FormValue("fingerprint")
+	if len(fingerprint) > maxFingerprintLen {
+		http.Error(w, "Invalid fingerprint", http.StatusBadRequest)
+		return
+	}
 
 	trailID, err := strconv.ParseInt(trailIDStr, 10, 64)
 	if err != nil || trailID <= 0 {

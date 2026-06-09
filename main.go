@@ -17,8 +17,12 @@ import (
 
 func startVoteResetScheduler(ctx context.Context, database *sql.DB) {
 	for {
-		now := time.Now()
-		next := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
+		// Reset at UTC midnight so the boundary matches the DB queries, which
+		// use datetime('now') / NOW() (UTC). Using the server's local zone here
+		// would drift the reset away from the "today" window the metrics and
+		// status calculations rely on.
+		now := time.Now().UTC()
+		next := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, time.UTC)
 		timer := time.NewTimer(time.Until(next))
 		select {
 		case <-ctx.Done():

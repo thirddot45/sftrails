@@ -1,0 +1,28 @@
+# Keep the build context minimal: the Dockerfile copies the whole tree, so
+# exclude anything that isn't needed to build/run the app.
+.git
+.gitignore
+.github
+.claude
+
+# Local databases and build artifacts
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+sftrails
+*.test
+*.out
+coverage.html
+
+# Generated templ output is regenerated during the image build
+*_templ.go
+
+# Tooling / editor / OS noise
+scripts
+README.md
+Makefile
+.idea/
+.vscode/
+.DS_Store
+tmp/

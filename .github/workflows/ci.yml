@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install templ
+        # Pin to the runtime version in go.mod so generated code matches the
+        # vendored templ runtime (see Dockerfile for the same constraint).
+        run: go install github.com/a-h/templ/cmd/templ@v0.3.977
+
+      - name: Generate templates
+        run: templ generate
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build (sqlite)
+        run: go build ./...
+
+      - name: Build (postgres)
+        run: go build -tags postgres ./...

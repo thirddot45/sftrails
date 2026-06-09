@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -35,9 +36,11 @@ func randomSalt() string {
 	return hex.EncodeToString(b)
 }
 
-// metricsSalt is mixed into the visitor hash so the stored value cannot be
-// reversed back to an IP address. Set METRICS_SALT in production for stable
-// unique counts across restarts; otherwise a random per-process salt is used.
+// metricsSalt is the secret key for the visitor HMAC. Because the IPv4 space is
+// small enough to brute-force, the salt must be kept secret and unpredictable
+// for the hash to resist reversal — treat it like any other credential. Set
+// METRICS_SALT in production for stable unique counts across restarts;
+// otherwise a random per-process salt is used and counts reset on restart.
 func metricsSalt() string {
 	if s := os.Getenv("METRICS_SALT"); s != "" {
 		return s
@@ -45,17 +48,16 @@ func metricsSalt() string {
 	return ephemeralSalt
 }
 
-// visitorHash returns a salted, one-way hash identifying a visitor for
-// unique-count purposes. The raw IP is never stored or displayed; combining it
-// with the User-Agent and a server salt yields a stable but non-reversible id.
+// visitorHash returns a keyed (HMAC-SHA256) hash identifying a visitor for
+// unique-count purposes. The raw IP is never stored or displayed. Keying with
+// the secret salt — rather than just hashing salt+IP — means the hash cannot be
+// reversed by brute-forcing the (small) IP space without also knowing the key.
 func visitorHash(r *http.Request) string {
-	h := sha256.New()
-	h.Write([]byte(metricsSalt()))
-	h.Write([]byte{0})
-	h.Write([]byte(GetIP(r)))
-	h.Write([]byte{0})
-	h.Write([]byte(r.UserAgent()))
-	return hex.EncodeToString(h.Sum(nil))
+	mac := hmac.New(sha256.New, []byte(metricsSalt()))
+	mac.Write([]byte(GetIP(r)))
+	mac.Write([]byte{0})
+	mac.Write([]byte(r.UserAgent()))
+	return hex.EncodeToString(mac.Sum(nil))
 }
 
 // shouldTrack reports whether a request should be counted as a page view. We
