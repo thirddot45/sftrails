@@ -25,7 +25,7 @@ func TestHandleMetricsIsPublicAndNoIndex(t *testing.T) {
 		t.Fatalf("Expected 200, got %d", w.Code)
 	}
 	body := w.Body.String()
-	if !strings.Contains(body, "Site Metrics") {
+	if !strings.Contains(body, "SF Trails Metrics") {
 		t.Errorf("Expected metrics page body, got %q", body)
 	}
 	if got := w.Header().Get("X-Robots-Tag"); !strings.Contains(got, "noindex") || !strings.Contains(got, "noai") {
@@ -34,11 +34,40 @@ func TestHandleMetricsIsPublicAndNoIndex(t *testing.T) {
 	if !strings.Contains(body, `<meta name="robots"`) || !strings.Contains(body, "noindex") {
 		t.Error("Expected a robots noindex meta tag in the metrics page head")
 	}
-	if strings.Contains(body, `rel="canonical"`) || strings.Contains(body, `type="text/markdown"`) {
-		t.Error("Metrics page must not advertise a canonical URL or markdown alternate to crawlers")
+	// No discovery markup: nothing here should invite a crawler to index,
+	// preview, or follow the page.
+	for _, marker := range []string{`rel="canonical"`, `type="text/markdown"`, "og:image", "og:title", "ld+json", "twitter:card"} {
+		if strings.Contains(body, marker) {
+			t.Errorf("Metrics page must not emit discovery markup %q", marker)
+		}
 	}
-	if strings.Contains(body, "og:image") || strings.Contains(body, "ld+json") {
-		t.Error("Metrics page must not emit Open Graph or JSON-LD discovery markup")
+}
+
+func TestHandleMetricsRendersOnlyDataPoints(t *testing.T) {
+	h := setupTestHandler(t)
+	dir, err := changeToProjectRoot()
+	if err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	defer restoreDir(t, dir)
+
+	req := httptest.NewRequest("GET", "/metrics", nil)
+	w := httptest.NewRecorder()
+	h.HandleMetrics(w, req)
+	body := w.Body.String()
+
+	// Every aggregate the dashboard exists to report is present.
+	for _, label := range []string{"Total visits", "Unique visitors", "Visits today", "Unique today", "Last 7 days", "Top pages"} {
+		if !strings.Contains(body, label) {
+			t.Errorf("Expected data point %q in metrics page", label)
+		}
+	}
+
+	// ...and nothing else: no styling, no scripts, no site chrome.
+	for _, marker := range []string{"tailwind", "htmx", "<script", "<style", "fingerprint.js", "sort.js", "class=", "<header", "<footer", "South Florida Mountain Bike Trail Status"} {
+		if strings.Contains(strings.ToLower(body), strings.ToLower(marker)) {
+			t.Errorf("Metrics page should be bare data points, but contains %q", marker)
+		}
 	}
 }
 

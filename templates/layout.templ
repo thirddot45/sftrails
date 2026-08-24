@@ -1,13 +1,5 @@
 package templates
 
-// NoIndexDirectives is the robots policy for pages that must stay out of search
-// indexes and AI training/inference corpora. The standard tokens
-// (noindex/nofollow/noarchive/nosnippet/noimageindex) cover search engines;
-// noai/noimageai are the de-facto opt-out signals honored by AI crawlers. It is
-// emitted both as a <meta name="robots"> tag here and as an X-Robots-Tag
-// response header by the handlers package.
-const NoIndexDirectives = "noindex, nofollow, noarchive, nosnippet, noimageindex, noai, noimageai"
-
 // markdownAltHref returns the .md alternate URL for a canonical path.
 // "/" becomes "/index.md"; everything else gets ".md" appended.
 func markdownAltHref(path string) string {
@@ -24,22 +16,6 @@ templ Layout(title string, description string) {
 }
 
 templ LayoutPath(title string, description string, canonicalPath string) {
-	@layoutShell(title, description, canonicalPath, false) {
-		{ children... }
-	}
-}
-
-// LayoutNoIndex renders a page that must stay out of search engines and AI
-// crawlers. It emits a robots meta tag and omits the discovery markup —
-// canonical link, markdown alternate, Open Graph/Twitter cards and JSON-LD —
-// that exists to invite indexing.
-templ LayoutNoIndex(title string, description string) {
-	@layoutShell(title, description, "", true) {
-		{ children... }
-	}
-}
-
-templ layoutShell(title string, description string, canonicalPath string, noIndex bool) {
 	<!DOCTYPE html>
 	<html lang="en">
 	<head>
@@ -47,58 +23,54 @@ templ layoutShell(title string, description string, canonicalPath string, noInde
 		<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 		<title>{ title }</title>
 		<meta name="description" content={ description }/>
+		<link rel="canonical" href={ "https://sftrails.info" + canonicalPath }/>
+		<link rel="alternate" type="text/markdown" href={ markdownAltHref(canonicalPath) }/>
+		<!-- Open Graph -->
+		<meta property="og:type" content="website"/>
+		<meta property="og:title" content={ title }/>
+		<meta property="og:description" content={ description }/>
+		<meta property="og:url" content={ "https://sftrails.info" + canonicalPath }/>
+		<meta property="og:site_name" content="SF Trails"/>
+		<meta property="og:locale" content="en_US"/>
+		<meta property="og:image" content="https://sftrails.info/static/og-image.png"/>
+		<meta property="og:image:type" content="image/png"/>
+		<meta property="og:image:width" content="1200"/>
+		<meta property="og:image:height" content="630"/>
+		<meta property="og:image:alt" content="SF Trails — South Florida mountain bike trail status"/>
+		<!-- Twitter Card -->
+		<meta name="twitter:card" content="summary_large_image"/>
+		<meta name="twitter:title" content={ title }/>
+		<meta name="twitter:description" content={ description }/>
+		<meta name="twitter:image" content="https://sftrails.info/static/og-image.png"/>
 		<meta name="theme-color" content="#111827"/>
-		if noIndex {
-			<meta name="robots" content={ NoIndexDirectives }/>
-		} else {
-			<link rel="canonical" href={ "https://sftrails.info" + canonicalPath }/>
-			<link rel="alternate" type="text/markdown" href={ markdownAltHref(canonicalPath) }/>
-			<!-- Open Graph -->
-			<meta property="og:type" content="website"/>
-			<meta property="og:title" content={ title }/>
-			<meta property="og:description" content={ description }/>
-			<meta property="og:url" content={ "https://sftrails.info" + canonicalPath }/>
-			<meta property="og:site_name" content="SF Trails"/>
-			<meta property="og:locale" content="en_US"/>
-			<meta property="og:image" content="https://sftrails.info/static/og-image.png"/>
-			<meta property="og:image:type" content="image/png"/>
-			<meta property="og:image:width" content="1200"/>
-			<meta property="og:image:height" content="630"/>
-			<meta property="og:image:alt" content="SF Trails — South Florida mountain bike trail status"/>
-			<!-- Twitter Card -->
-			<meta name="twitter:card" content="summary_large_image"/>
-			<meta name="twitter:title" content={ title }/>
-			<meta name="twitter:description" content={ description }/>
-			<meta name="twitter:image" content="https://sftrails.info/static/og-image.png"/>
-			<script type="application/ld+json">
-			{
-				"@context": "https://schema.org",
-				"@type": "WebApplication",
-				"name": "SF Trails",
-				"description": "Community-driven South Florida mountain bike trail status tracker. Real-time trail conditions reported by riders.",
-				"url": "https://sftrails.info",
-				"applicationCategory": "SportsApplication",
-				"operatingSystem": "Web",
-				"offers": {
-					"@type": "Offer",
-					"price": "0",
-					"priceCurrency": "USD"
-				},
-				"author": {
-					"@type": "Organization",
-					"name": "SF Trails"
-				},
-				"areaServed": {
-					"@type": "State",
-					"name": "Florida",
-					"containedInPlace": {
-						"@type": "Country",
-						"name": "United States"
-					}
+		<script type="application/ld+json">
+		{
+			"@context": "https://schema.org",
+			"@type": "WebApplication",
+			"name": "SF Trails",
+			"description": "Community-driven South Florida mountain bike trail status tracker. Real-time trail conditions reported by riders.",
+			"url": "https://sftrails.info",
+			"applicationCategory": "SportsApplication",
+			"operatingSystem": "Web",
+			"offers": {
+				"@type": "Offer",
+				"price": "0",
+				"priceCurrency": "USD"
+			},
+			"author": {
+				"@type": "Organization",
+				"name": "SF Trails"
+			},
+			"areaServed": {
+				"@type": "State",
+				"name": "Florida",
+				"containedInPlace": {
+					"@type": "Country",
+					"name": "United States"
 				}
 			}
-			</script>
 		}
+		</script>
 		<script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js" defer></script>
 		<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2/dist/tailwind.min.css" rel="stylesheet"/>
 		<script src="/static/fingerprint.js" defer></script>

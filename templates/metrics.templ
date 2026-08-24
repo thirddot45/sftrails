@@ -1,99 +1,65 @@
 package templates
 
 import (
-	"fmt"
+	"strconv"
 
 	"sftrails/models"
 )
 
-// barPct returns the height percentage (1-100) of a value relative to max,
-// with a small floor so non-zero days remain visible.
-func barPct(value, max int) int {
-	if max <= 0 || value <= 0 {
-		return 0
-	}
-	pct := value * 100 / max
-	if pct < 4 {
-		pct = 4
-	}
-	return pct
-}
+// NoIndexDirectives is the robots policy for pages that must stay out of search
+// indexes and AI training/inference corpora. The standard tokens
+// (noindex/nofollow/noarchive/nosnippet/noimageindex) cover search engines;
+// noai/noimageai are the de-facto opt-out signals honored by AI crawlers. It is
+// emitted both as a <meta name="robots"> tag here and as an X-Robots-Tag
+// response header by the handlers package.
+const NoIndexDirectives = "noindex, nofollow, noarchive, nosnippet, noimageindex, noai, noimageai"
 
-// maxViews returns the largest daily view count, used to scale the chart.
-func maxViews(days []models.DayCount) int {
-	max := 0
-	for _, d := range days {
-		if d.Views > max {
-			max = d.Views
-		}
-	}
-	return max
-}
-
-// shortDay returns the MM-DD portion of a YYYY-MM-DD date for compact labels.
-func shortDay(date string) string {
-	if len(date) >= 10 {
-		return date[5:]
-	}
-	return date
-}
-
+// MetricsPage renders the traffic dashboard as bare name/value data points.
+//
+// It deliberately does not use the site Layout: no Tailwind, no HTMX, no
+// fingerprint/sort scripts, no header, footer, branding, or navigation. The
+// page is a human-readable list of aggregate counts and nothing else, which
+// keeps the surface that a crawler could index down to the numbers themselves.
+// All counts are aggregates — no IP addresses or personal data are included.
 templ MetricsPage(m models.SiteMetrics) {
-	@LayoutNoIndex("SF Trails - Metrics", "Site traffic metrics for SF Trails.") {
-		<section aria-label="Metrics overview" class="mb-6">
-			<h2 class="text-xl font-bold text-white mb-2">Site Metrics</h2>
-			<p class="text-gray-400 text-sm">Privacy-friendly traffic overview. No IP addresses or personal data are stored or shown.</p>
-		</section>
-
-		<section aria-label="Totals" class="mb-8">
-			<div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-				@statCard("Total visits", fmt.Sprintf("%d", m.TotalViews))
-				@statCard("Unique visitors", fmt.Sprintf("%d", m.UniqueVisits))
-				@statCard("Visits today", fmt.Sprintf("%d", m.ViewsToday))
-				@statCard("Unique today", fmt.Sprintf("%d", m.UniqueToday))
-			</div>
-		</section>
-
-		<section aria-label="Last 7 days" class="mb-8">
-			<h3 class="text-lg font-semibold text-white mb-3">Last 7 days</h3>
-			<div class="bg-gray-800 rounded-xl p-4 shadow">
-				<div class="flex items-end justify-between gap-2" style="height: 160px;">
-					for _, d := range m.Days {
-						<div class="flex flex-col items-center justify-end flex-1 h-full" title={ fmt.Sprintf("%s: %d visits, %d unique", d.Date, d.Views, d.Unique) }>
-							<span class="text-gray-300 text-xs mb-1">{ fmt.Sprintf("%d", d.Views) }</span>
-							<div class="w-full bg-green-500 rounded-t" style={ fmt.Sprintf("height: %d%%; min-height: 2px;", barPct(d.Views, maxViews(m.Days))) }></div>
-							<span class="text-gray-500 text-xs mt-2">{ shortDay(d.Date) }</span>
-						</div>
-					}
-				</div>
-			</div>
-		</section>
-
-		<section aria-label="Top pages" class="mb-8">
-			<h3 class="text-lg font-semibold text-white mb-3">Top pages</h3>
-			if len(m.TopPaths) == 0 {
-				<div class="bg-gray-800 rounded-xl p-4 shadow text-gray-400 text-sm">No traffic recorded yet.</div>
-			} else {
-				<div class="bg-gray-800 rounded-xl shadow divide-y divide-gray-700">
-					for _, p := range m.TopPaths {
-						<div class="flex items-center justify-between px-4 py-3">
-							<span class="text-gray-300 text-sm break-all">{ p.Path }</span>
-							<span class="text-white font-semibold text-sm flex-shrink-0 ml-3">{ fmt.Sprintf("%d", p.Views) }</span>
-						</div>
-					}
-				</div>
+	<!DOCTYPE html>
+	<html lang="en">
+	<head>
+		<meta charset="UTF-8"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+		<title>SF Trails Metrics</title>
+		<meta name="robots" content={ NoIndexDirectives }/>
+	</head>
+	<body>
+		<h1>SF Trails Metrics</h1>
+		<h2>Totals</h2>
+		<ul>
+			@dataPoint("Total visits", m.TotalViews)
+			@dataPoint("Unique visitors", m.UniqueVisits)
+			@dataPoint("Visits today", m.ViewsToday)
+			@dataPoint("Unique today", m.UniqueToday)
+		</ul>
+		<h2>Last 7 days</h2>
+		<ul>
+			for _, d := range m.Days {
+				<li>{ d.Date }: { strconv.Itoa(d.Views) } visits, { strconv.Itoa(d.Unique) } unique</li>
 			}
-		</section>
-
-		<section class="text-center">
-			<a href="/" class="text-gray-400 hover:text-white text-sm">← Back to trails</a>
-		</section>
-	}
+		</ul>
+		<h2>Top pages</h2>
+		if len(m.TopPaths) == 0 {
+			<ul><li>No page views recorded.</li></ul>
+		} else {
+			<ul>
+				for _, p := range m.TopPaths {
+					@dataPoint(p.Path, p.Views)
+				}
+			</ul>
+		}
+	</body>
+	</html>
 }
 
-templ statCard(label, value string) {
-	<div class="bg-gray-800 rounded-xl p-4 shadow">
-		<div class="text-2xl font-bold text-white">{ value }</div>
-		<div class="text-gray-400 text-xs mt-1">{ label }</div>
-	</div>
+// dataPoint renders a single labelled count as a list item.
+templ dataPoint(label string, value int) {
+	<li>{ label }: { strconv.Itoa(value) }</li>
 }
