@@ -70,12 +70,21 @@ func approximateTokens(s string) int {
 	return n
 }
 
+// hasMarkdownVariant reports whether a page publishes a markdown rendition.
+// /metrics is excluded: it is a human-only dashboard kept out of search engines
+// and AI crawlers, so it offers no agent-facing format.
+func hasMarkdownVariant(path string) bool {
+	return path != "/metrics"
+}
+
 // MarkdownSuffixMiddleware lets clients request the markdown variant of any
 // page by appending ".md" to the URL (e.g. /index.md, /trail/foo.md). It
 // strips the suffix and forces Accept: text/markdown so the existing
 // negotiation middleware downstream produces markdown.
 //
 // Special case: /index.md is rewritten to / so the root route still matches.
+// Paths without a published markdown rendition (see hasMarkdownVariant) are
+// left untouched so their .md URL 404s instead of serving HTML.
 func MarkdownSuffixMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p := r.URL.Path
@@ -86,6 +95,13 @@ func MarkdownSuffixMiddleware(next http.Handler) http.Handler {
 		stripped := strings.TrimSuffix(p, ".md")
 		if stripped == "/index" || stripped == "" {
 			stripped = "/"
+		}
+		if !hasMarkdownVariant(stripped) {
+			// No markdown rendition is published for this page, so the .md URL
+			// must not resolve to the HTML one. Leave the path alone and let
+			// the router 404 it.
+			next.ServeHTTP(w, r)
+			return
 		}
 		r2 := r.Clone(r.Context())
 		r2.URL.Path = stripped

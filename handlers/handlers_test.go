@@ -695,6 +695,69 @@ func TestRobotsTxtAICrawlers(t *testing.T) {
 	}
 }
 
+// TestRobotsTxtDisallowsMetricsForEveryGroup checks that /metrics is disallowed
+// in every User-agent group. A named group replaces the wildcard group entirely
+// for that crawler, so an "Allow: /" group without its own Disallow would let
+// that crawler straight into the dashboard.
+func TestRobotsTxtDisallowsMetricsForEveryGroup(t *testing.T) {
+	h := setupTestHandler(t)
+	oldDir, err := changeToProjectRoot()
+	if err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	defer restoreDir(t, oldDir)
+
+	req := httptest.NewRequest("GET", "/robots.txt", nil)
+	w := httptest.NewRecorder()
+	h.HandleRobotsTxt(w, req)
+
+	// A group is one or more consecutive User-agent lines followed by its
+	// rules; the next User-agent line after a rule line starts a new group.
+	var agents []string
+	var disallowsMetrics bool
+	inGroup, lastWasAgent := false, false
+	groups := 0
+
+	endGroup := func() {
+		if inGroup && !disallowsMetrics {
+			t.Errorf("robots.txt group %q does not disallow /metrics", strings.Join(agents, ", "))
+		}
+		inGroup = false
+	}
+
+	for _, line := range strings.Split(w.Body.String(), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if strings.HasPrefix(line, "User-agent:") {
+			if inGroup && !lastWasAgent {
+				endGroup()
+			}
+			ua := strings.TrimSpace(strings.TrimPrefix(line, "User-agent:"))
+			if inGroup {
+				agents = append(agents, ua)
+			} else {
+				agents = []string{ua}
+				disallowsMetrics = false
+				inGroup = true
+				groups++
+			}
+			lastWasAgent = true
+			continue
+		}
+		lastWasAgent = false
+		if strings.EqualFold(line, "Disallow: /metrics") {
+			disallowsMetrics = true
+		}
+	}
+	endGroup()
+
+	if groups < 2 {
+		t.Fatalf("Expected robots.txt to define multiple User-agent groups, found %d", groups)
+	}
+}
+
 func TestVotePersistsOnRefresh(t *testing.T) {
 	h := setupTestHandler(t)
 

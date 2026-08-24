@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
-	"crypto/subtle"
 	"database/sql"
 	"encoding/hex"
 	"log/slog"
@@ -16,11 +15,6 @@ import (
 	"sftrails/db"
 	"sftrails/templates"
 )
-
-// metricsUser and metricsPassword are read from the environment. No defaults are
-// baked in: if either is unset the dashboard is unreachable (fail closed).
-func metricsUser() string     { return os.Getenv("METRICS_USER") }
-func metricsPassword() string { return os.Getenv("METRICS_PASSWORD") }
 
 // ephemeralSalt is generated once at startup and used for the visitor hash when
 // METRICS_SALT is not set. It keeps unique-visitor counting working without a
@@ -60,7 +54,7 @@ func visitorHash(r *http.Request) string {
 
 // shouldTrack reports whether a request should be counted as a page view. We
 // track GET requests to human-facing pages and skip assets, machine endpoints,
-// and the password-protected metrics dashboard itself.
+// and the metrics dashboard itself.
 func shouldTrack(r *http.Request) bool {
 	if r.Method != http.MethodGet {
 		return false
@@ -108,33 +102,10 @@ func MetricsMiddleware(database *sql.DB) func(http.Handler) http.Handler {
 	}
 }
 
-// BasicAuthMiddleware protects a handler with HTTP Basic Auth. Both the username
-// (METRICS_USER) and password (METRICS_PASSWORD) are checked. Comparisons are
-// constant-time and both run regardless of outcome to avoid leaking which field
-// was wrong via timing. If either credential is unset the dashboard is unreachable
-// (fail closed) so no usable default ever ships.
-func BasicAuthMiddleware(realm string, next http.Handler) http.Handler {
-	wantUser := metricsUser()
-	wantPass := metricsPassword()
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if wantUser == "" || wantPass == "" {
-			http.Error(w, "Metrics dashboard not configured", http.StatusServiceUnavailable)
-			return
-		}
-		user, pass, ok := r.BasicAuth()
-		userOK := subtle.ConstantTimeCompare([]byte(user), []byte(wantUser)) == 1
-		passOK := subtle.ConstantTimeCompare([]byte(pass), []byte(wantPass)) == 1
-		if !ok || !userOK || !passOK {
-			w.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`", charset="UTF-8"`)
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
-// HandleMetrics renders the site metrics dashboard. It must be mounted behind
-// BasicAuthMiddleware.
+// HandleMetrics renders the site metrics dashboard. The page is public, but it
+// is kept out of search engines and AI crawlers: mount it behind
+// NoCrawlMiddleware, which turns crawlers away, and the noindex headers set
+// here cover any indexer that fetches it regardless.
 func (h *Handler) HandleMetrics(w http.ResponseWriter, r *http.Request) {
 	m, err := db.GetSiteMetrics(r.Context(), h.db)
 	if err != nil {
@@ -143,6 +114,7 @@ func (h *Handler) HandleMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	setNoIndexHeaders(w)
 	if err := templates.MetricsPage(m).Render(r.Context(), w); err != nil {
 		slog.Error("failed to render metrics", "error", err)
 	}

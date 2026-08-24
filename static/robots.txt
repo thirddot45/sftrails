@@ -6,36 +6,48 @@ Allow: /llms.txt
 Allow: /llms-full.txt
 Disallow: /vote
 Disallow: /trails-list
+Disallow: /metrics
 
 Sitemap: /sitemap.xml
 
-# AI Crawlers
+# AI Crawlers — allowed everywhere except the /metrics dashboard, which is a
+# human-only traffic view with nothing to index.
 User-agent: GPTBot
 Allow: /
+Disallow: /metrics
 
 User-agent: ChatGPT-User
 Allow: /
+Disallow: /metrics
 
 User-agent: ClaudeBot
 Allow: /
+Disallow: /metrics
 
 User-agent: Claude-SearchBot
 Allow: /
+Disallow: /metrics
 
 User-agent: PerplexityBot
 Allow: /
+Disallow: /metrics
 
 User-agent: Google-Extended
 Allow: /
+Disallow: /metrics
 
 User-agent: Applebot-Extended
 Allow: /
+Disallow: /metrics
 
 User-agent: Amazonbot
 Allow: /
+Disallow: /metrics
 
 User-agent: Bytespider
 Allow: /
+Disallow: /metrics
 
 User-agent: cohere-ai
 Allow: /
+Disallow: /metrics
