@@ -50,47 +50,15 @@ templ LayoutDocument(title string, description string, canonicalPath string, dis
 		<meta name="twitter:description" content={ description }/>
 		<meta name="twitter:image" content="https://sftrails.info/static/og-image.png"/>
 		<meta name="theme-color" content="#111827"/>
-		<script type="application/ld+json">
-		{
-			"@context": "https://schema.org",
-			"@type": "WebApplication",
-			"name": "SF Trails",
-			"description": "Community-driven South Florida mountain bike trail status tracker. Real-time trail conditions reported by riders.",
-			"url": "https://sftrails.info",
-			"applicationCategory": "SportsApplication",
-			"operatingSystem": "Web",
-			"offers": {
-				"@type": "Offer",
-				"price": "0",
-				"priceCurrency": "USD"
-			},
-			"author": {
-				"@type": "Organization",
-				"name": "SF Trails"
-			},
-			"areaServed": {
-				"@type": "State",
-				"name": "Florida",
-				"containedInPlace": {
-					"@type": "Country",
-					"name": "United States"
-				}
-			}
-		}
-		</script>
 		} else {
 			<meta name="robots" content="noindex, nofollow, nosnippet, noarchive"/>
 		}
 		<script src="/static/vendor/htmx-2.0.4.min.js" defer></script>
-		<link href="/static/vendor/tailwind-2.2.19.min.css" rel="stylesheet"/>
+		<link href="/static/app.min.css" rel="stylesheet"/>
 		<script src="/static/fingerprint.js" defer></script>
 		<script src="/static/sort.js" defer></script>
 		<style>
 			body { background-color: #111827; }
-			.trail-card { transition: all 0.2s ease; }
-			@media (hover: hover) {
-				.trail-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
-			}
 			button { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 			.status-bar { height: 0.75rem; border-radius: 9999px; width: 100%; transition: background-color 0.5s ease; }
 			.status-bar.bar-none { background-color: #1f2937; border: 1px solid #374151; }
@@ -102,7 +70,7 @@ templ LayoutDocument(title string, description string, canonicalPath string, dis
 	<body class="min-h-screen">
 		<header class="bg-gray-900 border-b border-gray-700 text-white py-6 shadow-lg">
 			<div class="max-w-4xl mx-auto px-4">
-				<h1 class="text-3xl font-bold">SF Trails</h1>
+				<a href="/" class="text-3xl font-bold hover:underline">SF Trails</a>
 				<p class="text-gray-400 mt-1">South Florida Mountain Bike Trail Status</p>
 			</div>
 		</header>
@@ -111,7 +79,11 @@ templ LayoutDocument(title string, description string, canonicalPath string, dis
 		</main>
 		<footer class="bg-gray-900 text-gray-500 border-t border-gray-700 py-6 mt-12">
 			<div class="max-w-4xl mx-auto px-4 text-center text-sm">
-				<p>Community-driven trail status reports. Vote to help fellow riders!</p>
+				<p>Independent, community-reported trail conditions.</p>
+				<nav aria-label="Footer" class="mt-2 space-x-4">
+					<a href="/" class="text-gray-300 hover:underline">All trails</a>
+					<a href="/how-it-works" class="text-gray-300 hover:underline">How it works</a>
+				</nav>
 			</div>
 		</footer>
 	</body>

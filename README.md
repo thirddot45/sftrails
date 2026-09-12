@@ -24,6 +24,38 @@ make build
 make test
 ```
 
+The generated stylesheet is committed, so Go/Docker builds need no Node runtime.
+After changing template classes or client-side styles, use Node 22+ to rebuild it:
+
+```bash
+npm ci --ignore-scripts
+npm run build:css
+```
+
+Commit `static/app.min.css` with the source changes. CI runs `npm run check:css`
+to catch stale styles. PurgeCSS removes unused selectors from the pinned
+Tailwind 2.2.19 source in `assets/`, including all conditional template states.
+
+## Search visibility
+
+Trail names are ordinary HTML links to individual condition pages. Each search
+page has a unique title, description, primary heading and canonical URL. The
+homepage includes a structured trail list; detail pages include breadcrumbs.
+Short park notes link to their park authority, and `/how-it-works` explains the
+reporting methodology. Maintain those notes in `templates/trail_guides.go`.
+
+`/sitemap.xml` lists the homepage, methodology and all trail pages. It omits
+`lastmod` because no single timestamp captures votes, forecasts and editorial
+changes. Markdown alternatives use an HTTP canonical pointing to HTML; both
+formats send `Vary: Accept`. API responses, fragments and the health dashboard
+send `noindex`. Metrics retains its separate search and AI exclusion policy.
+
+To measure search results, verify `sftrails.info` in Google Search Console and
+submit `https://sftrails.info/sitemap.xml`. Inspect the homepage and a trail page
+with URL Inspection. Repository changes cannot establish account ownership or
+guarantee indexing or ranking. See `docs/seo-review-2026-09-12.md` for findings
+and follow-up priorities.
+
 ## Metrics
 
 The aggregate traffic dashboard at `/metrics` is public and requires no login.

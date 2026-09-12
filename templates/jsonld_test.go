@@ -12,7 +12,7 @@ func TestJSONLDEscapesScriptBreakout(t *testing.T) {
 	trail := models.TrailWithStatus{}
 	trail.Name = `</script><script>alert(1)</script>`
 	trail.Description = `quotes " and <img src=x onerror=alert(1)>`
-	for _, output := range []string{trailsJSONLDScript([]models.TrailWithStatus{trail}), trailDetailJSONLD(trail)} {
+	for _, output := range []string{trailsJSONLDScript([]models.TrailWithStatus{trail}), trailDetailJSONLD(trail), trailBreadcrumbJSONLD(trail)} {
 		if strings.Count(output, "</script>") != 1 || strings.Contains(output, "<img") {
 			t.Fatalf("unsafe script output: %s", output)
 		}

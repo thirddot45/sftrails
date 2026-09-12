@@ -1,0 +1,11 @@
+{
+  "name": "sftrails-styles",
+  "private": true,
+  "scripts": {
+    "build:css": "node scripts/build-css.mjs",
+    "check:css": "node scripts/build-css.mjs --check"
+  },
+  "devDependencies": {
+    "purgecss": "8.0.0"
+  }
+}

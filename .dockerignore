@@ -22,6 +22,10 @@ coverage.html
 scripts
 README.md
 Makefile
+node_modules
+assets
+package.json
+package-lock.json
 .idea/
 .vscode/
 .DS_Store

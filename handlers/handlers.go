@@ -77,6 +77,7 @@ func (h *Handler) HandleIndex(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Link", `</llms-full.txt>; rel="service-doc"; type="text/plain"`)
 	w.Header().Add("Link", `</sitemap.xml>; rel="sitemap"; type="application/xml"`)
 	w.Header().Add("Link", `</index.md>; rel="alternate"; type="text/markdown"`)
+	setMarkdownCanonical(w, r, "/")
 	if err := templates.IndexPage(trails, sortLabel).Render(r.Context(), w); err != nil {
 		slog.Error("failed to render index", "error", err)
 	}
@@ -121,6 +122,7 @@ func (h *Handler) HandleTrailDetail(w http.ResponseWriter, r *http.Request) {
 		h.attachWeatherOne(&trail)
 		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 		w.Header().Add("Link", fmt.Sprintf(`</trail/%s.md>; rel="alternate"; type="text/markdown"`, slug))
+		setMarkdownCanonical(w, r, "/trail/"+slug)
 		if err := templates.TrailDetailPage(trail).Render(r.Context(), w); err != nil {
 			slog.Error("failed to render trail detail", "slug", slug, "error", err)
 		}
@@ -333,23 +335,39 @@ func (h *Handler) HandleRobotsTxt(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "./static/robots.txt")
 }
 
-func (h *Handler) HandleSitemap(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/xml; charset=utf-8")
-	lastmod := time.Now().UTC().Format("2006-01-02")
+// setMarkdownCanonical connects alternate markdown documents to the HTML page.
+// HTML declares the same canonical in its head; query strings are excluded.
+func setMarkdownCanonical(w http.ResponseWriter, r *http.Request, path string) {
+	if wantsMarkdown(r) {
+		w.Header().Add("Link", `<https://sftrails.info`+path+`>; rel="canonical"`)
+	}
+}
 
+func (h *Handler) HandleHowItWorks(w http.ResponseWriter, r *http.Request) {
+	setMarkdownCanonical(w, r, "/how-it-works")
+	if err := templates.HowItWorksPage().Render(r.Context(), w); err != nil {
+		slog.Error("failed to render how it works", "error", err)
+	}
+}
+
+func (h *Handler) HandleSitemap(w http.ResponseWriter, r *http.Request) {
+	trails, err := db.GetTrailsWithStatus(r.Context(), h.db)
+	if err != nil {
+		slog.Error("sitemap: trail lookup failed", "error", err)
+		http.Error(w, "Sitemap temporarily unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	w.Header().Set("Content-Type", "application/xml; charset=utf-8")
 	var b strings.Builder
 	b.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n")
 	b.WriteString(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` + "\n")
-	fmt.Fprintf(&b, "  <url>\n    <loc>https://sftrails.info/</loc>\n    <lastmod>%s</lastmod>\n    <changefreq>hourly</changefreq>\n    <priority>1.0</priority>\n  </url>\n", lastmod)
-
-	if trails, err := db.GetTrailsWithStatus(r.Context(), h.db); err == nil {
-		for _, t := range trails {
-			fmt.Fprintf(&b, "  <url>\n    <loc>https://sftrails.info/trail/%s</loc>\n    <lastmod>%s</lastmod>\n    <changefreq>hourly</changefreq>\n    <priority>0.8</priority>\n  </url>\n", Slugify(t.Name), lastmod)
-		}
-	} else {
-		slog.Warn("sitemap: trail lookup failed; serving index-only sitemap", "error", err)
+	// Omit lastmod: page content also depends on reports, weather and editorial
+	// changes, so the current date or trails.updated_at would misstate freshness.
+	b.WriteString("  <url><loc>https://sftrails.info/</loc></url>\n")
+	b.WriteString("  <url><loc>https://sftrails.info/how-it-works</loc></url>\n")
+	for _, trail := range trails {
+		fmt.Fprintf(&b, "  <url><loc>https://sftrails.info/trail/%s</loc></url>\n", Slugify(trail.Name))
 	}
-
 	b.WriteString(`</urlset>`)
 	if _, err := w.Write([]byte(b.String())); err != nil {
 		slog.Error("failed to write sitemap", "error", err)

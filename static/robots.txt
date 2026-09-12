@@ -7,7 +7,7 @@ Allow: /llms-full.txt
 Disallow: /vote
 Disallow: /trails-list
 
-Sitemap: /sitemap.xml
+Sitemap: https://sftrails.info/sitemap.xml
 
 # AI crawlers may read trail information, but must not fetch metrics.
 # Search engines may fetch /metrics to read its X-Robots-Tag: noindex.

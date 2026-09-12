@@ -33,6 +33,8 @@ type ldPropertyValue struct {
 type ldLocation struct {
 	Context            string          `json:"@context,omitempty"`
 	Type               string          `json:"@type"`
+	ID                 string          `json:"@id"`
+	URL                string          `json:"url"`
 	Name               string          `json:"name"`
 	Description        string          `json:"description"`
 	Address            ldPostalAddress `json:"address"`
@@ -42,12 +44,25 @@ type ldLocation struct {
 }
 
 type ldWebsite struct {
-	Context     string       `json:"@context"`
-	Type        string       `json:"@type"`
-	Name        string       `json:"name"`
-	URL         string       `json:"url"`
-	Description string       `json:"description"`
-	HasPart     []ldLocation `json:"hasPart"`
+	Context     string     `json:"@context"`
+	Type        string     `json:"@type"`
+	Name        string     `json:"name"`
+	URL         string     `json:"url"`
+	Description string     `json:"description"`
+	MainEntity  ldItemList `json:"mainEntity"`
+}
+
+type ldListItem struct {
+	Type     string `json:"@type"`
+	Position int    `json:"position"`
+	Name     string `json:"name"`
+	Item     string `json:"item"`
+}
+
+type ldItemList struct {
+	Context string       `json:"@context,omitempty"`
+	Type    string       `json:"@type"`
+	Items   []ldListItem `json:"itemListElement"`
 }
 
 func statusLabel(s models.TrailStatus) string {
@@ -67,6 +82,8 @@ func statusLabel(s models.TrailStatus) string {
 func locationLD(t models.TrailWithStatus, withContext bool) ldLocation {
 	ld := ldLocation{
 		Type:        "SportsActivityLocation",
+		ID:          "https://sftrails.info/trail/" + slugify(t.Name) + "#place",
+		URL:         "https://sftrails.info/trail/" + slugify(t.Name),
 		Name:        t.Name,
 		Description: t.Description,
 		Address: ldPostalAddress{
@@ -95,9 +112,9 @@ func locationLD(t models.TrailWithStatus, withContext bool) ldLocation {
 
 // trailsJSONLDScript returns the full <script> block for the index page.
 func trailsJSONLDScript(trails []models.TrailWithStatus) string {
-	parts := make([]ldLocation, 0, len(trails))
-	for _, t := range trails {
-		parts = append(parts, locationLD(t, false))
+	items := make([]ldListItem, 0, len(trails))
+	for i, t := range trails {
+		items = append(items, ldListItem{Type: "ListItem", Position: i + 1, Name: t.Name, Item: "https://sftrails.info/trail/" + slugify(t.Name)})
 	}
 	doc := ldWebsite{
 		Context:     "https://schema.org",
@@ -105,7 +122,7 @@ func trailsJSONLDScript(trails []models.TrailWithStatus) string {
 		Name:        "SF Trails",
 		URL:         "https://sftrails.info",
 		Description: "Community-driven South Florida mountain bike trail status reports",
-		HasPart:     parts,
+		MainEntity:  ldItemList{Type: "ItemList", Items: items},
 	}
 	return wrapJSONLD(doc)
 }
@@ -113,6 +130,17 @@ func trailsJSONLDScript(trails []models.TrailWithStatus) string {
 // trailDetailJSONLD returns the full <script> block for a single trail page.
 func trailDetailJSONLD(t models.TrailWithStatus) string {
 	return wrapJSONLD(locationLD(t, true))
+}
+
+func trailBreadcrumbJSONLD(t models.TrailWithStatus) string {
+	return wrapJSONLD(ldItemList{
+		Context: "https://schema.org",
+		Type:    "BreadcrumbList",
+		Items: []ldListItem{
+			{Type: "ListItem", Position: 1, Name: "South Florida trails", Item: "https://sftrails.info/"},
+			{Type: "ListItem", Position: 2, Name: t.Name, Item: "https://sftrails.info/trail/" + slugify(t.Name)},
+		},
+	})
 }
 
 func wrapJSONLD(v any) string {

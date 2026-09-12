@@ -103,6 +103,7 @@ func MarkdownSuffixMiddleware(next http.Handler) http.Handler {
 // token estimate of the converted body.
 func MarkdownNegotiationMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Vary", appendVary(w.Header().Get("Vary"), "Accept"))
 		if !wantsMarkdown(r) {
 			next.ServeHTTP(w, r)
 			return
