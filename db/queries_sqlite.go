@@ -2,7 +2,24 @@
 
 package db
 
-import "fmt"
+import (
+	"context"
+	"database/sql"
+	"fmt"
+)
+
+func lockVoteTrail(ctx context.Context, tx *sql.Tx, trailID int64) error {
+	// Obtain SQLite's write lock before taking the duplicate-check snapshot.
+	result, err := tx.ExecContext(ctx, `UPDATE trails SET id = id WHERE id = ?`, trailID)
+	if err != nil {
+		return err
+	}
+	n, err := result.RowsAffected()
+	if err == nil && n == 0 {
+		return ErrTrailNotFound
+	}
+	return err
+}
 
 func ph(n int) string { return "?" }
 

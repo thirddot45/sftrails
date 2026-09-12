@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18.6-alpine
+        env:
+          POSTGRES_USER: sftrails_test
+          POSTGRES_DB: sftrails_test
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sftrails_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Generate templates
+        run: |
+          go install github.com/a-h/templ/cmd/templ@v0.3.977
+          templ generate
+      - name: Vet both backends
+        run: |
+          go vet ./...
+          go vet -tags postgres ./...
+      - name: Test SQLite with race detector
+        run: go test -race ./...
+      - name: Test PostgreSQL with race detector
+        env:
+          TEST_DATABASE_URL: postgres://sftrails_test@localhost:5432/sftrails_test?sslmode=disable
+        run: go test -race -tags postgres ./...
+      - name: Build both backends
+        run: |
+          go build ./...
+          go build -tags postgres ./...
+      - name: Check reachable vulnerabilities
+        run: |
+          go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+          go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 -tags postgres ./...

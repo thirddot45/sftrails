@@ -35,8 +35,8 @@ func RunMigrations(ctx context.Context, db *sql.DB) error {
 	CREATE INDEX IF NOT EXISTS idx_votes_dedup ON votes(trail_id, ip_address, fingerprint, created_at DESC);
 
 	-- page_views records site traffic for the metrics dashboard. We deliberately
-	-- do NOT store IP addresses: visitor_hash is a salted, one-way hash used only
-	-- to approximate unique-visitor counts, and cannot be reversed to an IP.
+	-- do NOT store IP addresses: visitor_hash is a keyed pseudonymous identifier used only
+	-- to approximate unique-visitor counts. Keep METRICS_SALT secret.
 	CREATE TABLE IF NOT EXISTS page_views (
 		id SERIAL PRIMARY KEY,
 		path TEXT NOT NULL DEFAULT '',

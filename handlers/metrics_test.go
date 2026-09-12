@@ -9,109 +9,7 @@ import (
 	"testing"
 )
 
-const (
-	testMetricsUser = "tuser"
-	testMetricsPass = "tpass"
-)
-
-// configureMetricsAuth sets the credential env vars for the duration of a test.
-func configureMetricsAuth(t *testing.T) {
-	t.Helper()
-	t.Setenv("METRICS_USER", testMetricsUser)
-	t.Setenv("METRICS_PASSWORD", testMetricsPass)
-}
-
-func TestBasicAuthMiddlewareUnconfiguredFailsClosed(t *testing.T) {
-	t.Setenv("METRICS_USER", "")
-	t.Setenv("METRICS_PASSWORD", "")
-	called := false
-	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { called = true })
-	h := BasicAuthMiddleware("test", next)
-
-	req := httptest.NewRequest("GET", "/metrics", nil)
-	req.SetBasicAuth("anyone", "anything")
-	w := httptest.NewRecorder()
-	h.ServeHTTP(w, req)
-
-	if w.Code != http.StatusServiceUnavailable {
-		t.Errorf("Expected 503 when credentials unset, got %d", w.Code)
-	}
-	if called {
-		t.Error("Expected next handler not to be called when unconfigured")
-	}
-}
-
-func TestBasicAuthMiddlewareRejectsMissingCredentials(t *testing.T) {
-	configureMetricsAuth(t)
-	called := false
-	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { called = true })
-	h := BasicAuthMiddleware("test", next)
-
-	req := httptest.NewRequest("GET", "/metrics", nil)
-	w := httptest.NewRecorder()
-	h.ServeHTTP(w, req)
-
-	if w.Code != http.StatusUnauthorized {
-		t.Errorf("Expected 401, got %d", w.Code)
-	}
-	if called {
-		t.Error("Expected next handler not to be called without credentials")
-	}
-	if !strings.Contains(w.Header().Get("WWW-Authenticate"), "Basic") {
-		t.Errorf("Expected WWW-Authenticate challenge, got %q", w.Header().Get("WWW-Authenticate"))
-	}
-}
-
-func TestBasicAuthMiddlewareRejectsWrongPassword(t *testing.T) {
-	configureMetricsAuth(t)
-	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
-	h := BasicAuthMiddleware("test", next)
-
-	req := httptest.NewRequest("GET", "/metrics", nil)
-	req.SetBasicAuth(testMetricsUser, "wrong")
-	w := httptest.NewRecorder()
-	h.ServeHTTP(w, req)
-
-	if w.Code != http.StatusUnauthorized {
-		t.Errorf("Expected 401 for wrong password, got %d", w.Code)
-	}
-}
-
-func TestBasicAuthMiddlewareRejectsWrongUsername(t *testing.T) {
-	configureMetricsAuth(t)
-	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
-	h := BasicAuthMiddleware("test", next)
-
-	req := httptest.NewRequest("GET", "/metrics", nil)
-	req.SetBasicAuth("wronguser", testMetricsPass)
-	w := httptest.NewRecorder()
-	h.ServeHTTP(w, req)
-
-	if w.Code != http.StatusUnauthorized {
-		t.Errorf("Expected 401 for wrong username, got %d", w.Code)
-	}
-}
-
-func TestBasicAuthMiddlewareAcceptsCorrectCredentials(t *testing.T) {
-	configureMetricsAuth(t)
-	called := false
-	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { called = true })
-	h := BasicAuthMiddleware("test", next)
-
-	req := httptest.NewRequest("GET", "/metrics", nil)
-	req.SetBasicAuth(testMetricsUser, testMetricsPass)
-	w := httptest.NewRecorder()
-	h.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("Expected 200, got %d", w.Code)
-	}
-	if !called {
-		t.Error("Expected next handler to be called with correct credentials")
-	}
-}
-
-func TestHandleMetricsRendersBehindAuth(t *testing.T) {
+func TestHandleMetricsRendersPublicly(t *testing.T) {
 	h := setupTestHandler(t)
 	dir, err := changeToProjectRoot()
 	if err != nil {
@@ -169,5 +67,20 @@ func TestVisitorHashOmitsRawIP(t *testing.T) {
 	// Deterministic for the same visitor.
 	if hash != visitorHash(req) {
 		t.Error("visitor hash should be stable for the same visitor")
+	}
+}
+
+func TestMetricsSnapshotBoundsDatabaseReads(t *testing.T) {
+	h := setupTestHandler(t)
+	first := httptest.NewRecorder()
+	h.HandleMetrics(first, httptest.NewRequest("GET", "/metrics", nil))
+	if first.Code != 200 {
+		t.Fatal("initial snapshot failed")
+	}
+	h.db.Close()
+	cached := httptest.NewRecorder()
+	h.HandleMetrics(cached, httptest.NewRequest("GET", "/metrics", nil))
+	if cached.Code != 200 || cached.Body.String() != first.Body.String() {
+		t.Error("repeated request did not reuse the cached snapshot")
 	}
 }

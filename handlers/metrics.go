@@ -2,9 +2,9 @@ package handlers
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
-	"crypto/subtle"
 	"database/sql"
 	"encoding/hex"
 	"log/slog"
@@ -17,14 +17,9 @@ import (
 	"sftrails/templates"
 )
 
-// metricsUser and metricsPassword are read from the environment. No defaults are
-// baked in: if either is unset the dashboard is unreachable (fail closed).
-func metricsUser() string     { return os.Getenv("METRICS_USER") }
-func metricsPassword() string { return os.Getenv("METRICS_PASSWORD") }
-
 // ephemeralSalt is generated once at startup and used for the visitor hash when
 // METRICS_SALT is not set. It keeps unique-visitor counting working without a
-// baked-in salt; counts reset across restarts unless METRICS_SALT is provided.
+// baked-in salt; visitor identities change across restarts unless METRICS_SALT is provided.
 var ephemeralSalt = randomSalt()
 
 func randomSalt() string {
@@ -35,8 +30,7 @@ func randomSalt() string {
 	return hex.EncodeToString(b)
 }
 
-// metricsSalt is mixed into the visitor hash so the stored value cannot be
-// reversed back to an IP address. Set METRICS_SALT in production for stable
+// metricsSalt is the secret key used for pseudonymous visitor identifiers. Set METRICS_SALT in production for stable
 // unique counts across restarts; otherwise a random per-process salt is used.
 func metricsSalt() string {
 	if s := os.Getenv("METRICS_SALT"); s != "" {
@@ -45,45 +39,34 @@ func metricsSalt() string {
 	return ephemeralSalt
 }
 
-// visitorHash returns a salted, one-way hash identifying a visitor for
-// unique-count purposes. The raw IP is never stored or displayed; combining it
-// with the User-Agent and a server salt yields a stable but non-reversible id.
+// visitorHash is a pseudonymous analytics identifier keyed by METRICS_SALT.
+// Keep the key secret; a holder can recompute hashes for candidate IP/UA pairs.
 func visitorHash(r *http.Request) string {
-	h := sha256.New()
-	h.Write([]byte(metricsSalt()))
-	h.Write([]byte{0})
-	h.Write([]byte(GetIP(r)))
-	h.Write([]byte{0})
-	h.Write([]byte(r.UserAgent()))
-	return hex.EncodeToString(h.Sum(nil))
+	mac := hmac.New(sha256.New, []byte(metricsSalt()))
+	mac.Write([]byte(GetIP(r)))
+	mac.Write([]byte{0})
+	mac.Write([]byte(r.UserAgent()))
+	return hex.EncodeToString(mac.Sum(nil))
 }
 
 // shouldTrack reports whether a request should be counted as a page view. We
 // track GET requests to human-facing pages and skip assets, machine endpoints,
-// and the password-protected metrics dashboard itself.
+// and the public metrics dashboard itself.
 func shouldTrack(r *http.Request) bool {
 	if r.Method != http.MethodGet {
 		return false
 	}
 	p := r.URL.Path
-	switch {
-	case p == "/metrics",
-		p == "/robots.txt",
-		p == "/sitemap.xml",
-		p == "/favicon.ico",
-		strings.HasPrefix(p, "/static/"),
-		strings.HasPrefix(p, "/api/"),
-		strings.HasPrefix(p, "/.well-known/"),
-		strings.HasPrefix(p, "/llms"):
-		return false
-	}
-	return true
+	return p == "/" || p == "/trails-list" || p == "/status" ||
+		(strings.HasPrefix(p, "/trail/") && len(p) <= 160)
 }
 
 // MetricsMiddleware records a page view for tracked requests after the response
 // is served. Recording happens asynchronously and never blocks or fails the
 // request. No IP address is stored.
 func MetricsMiddleware(database *sql.DB) func(http.Handler) http.Handler {
+	// Bound background writes when traffic exceeds database throughput.
+	pending := make(chan struct{}, 128)
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if !shouldTrack(r) {
@@ -96,8 +79,14 @@ func MetricsMiddleware(database *sql.DB) func(http.Handler) http.Handler {
 				return
 			}
 			path := r.URL.Path
+			select {
+			case pending <- struct{}{}:
+			default:
+				return
+			}
 			hash := visitorHash(r)
 			go func() {
+				defer func() { <-pending }()
 				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
 				if err := db.RecordPageView(ctx, database, path, hash); err != nil {
@@ -108,35 +97,34 @@ func MetricsMiddleware(database *sql.DB) func(http.Handler) http.Handler {
 	}
 }
 
-// BasicAuthMiddleware protects a handler with HTTP Basic Auth. Both the username
-// (METRICS_USER) and password (METRICS_PASSWORD) are checked. Comparisons are
-// constant-time and both run regardless of outcome to avoid leaking which field
-// was wrong via timing. If either credential is unset the dashboard is unreachable
-// (fail closed) so no usable default ever ships.
-func BasicAuthMiddleware(realm string, next http.Handler) http.Handler {
-	wantUser := metricsUser()
-	wantPass := metricsPassword()
+// MetricsDiscoveryMiddleware keeps the public dashboard out of indexing.
+// Crawlers need to fetch this header to honor noindex; it is not access control.
+func MetricsDiscoveryMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if wantUser == "" || wantPass == "" {
-			http.Error(w, "Metrics dashboard not configured", http.StatusServiceUnavailable)
-			return
-		}
-		user, pass, ok := r.BasicAuth()
-		userOK := subtle.ConstantTimeCompare([]byte(user), []byte(wantUser)) == 1
-		passOK := subtle.ConstantTimeCompare([]byte(pass), []byte(wantPass)) == 1
-		if !ok || !userOK || !passOK {
-			w.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`", charset="UTF-8"`)
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
+		w.Header().Set("X-Robots-Tag", "noindex, nofollow, nosnippet, noarchive")
+		w.Header().Set("Content-Signal", "search=no, ai-train=no, ai-input=no")
+		w.Header().Set("Cache-Control", "no-store")
 		next.ServeHTTP(w, r)
 	})
 }
 
-// HandleMetrics renders the site metrics dashboard. It must be mounted behind
-// BasicAuthMiddleware.
+// HandleMetrics returns public aggregate counts. Cache the database snapshot
+// for one minute and serialize refreshes so anonymous traffic cannot force a
+// full-table scan on every request. No visitor identifiers leave this handler.
 func (h *Handler) HandleMetrics(w http.ResponseWriter, r *http.Request) {
-	m, err := db.GetSiteMetrics(r.Context(), h.db)
+	h.metricsMu.Lock()
+	m := h.metricsCache
+	var err error
+	if time.Now().After(h.metricsExpires) {
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		m, err = db.GetSiteMetrics(ctx, h.db)
+		cancel()
+		if err == nil {
+			h.metricsCache = m
+			h.metricsExpires = time.Now().Add(time.Minute)
+		}
+	}
+	h.metricsMu.Unlock()
 	if err != nil {
 		slog.Error("failed to get site metrics", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)

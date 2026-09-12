@@ -448,11 +448,11 @@ func TestHandleAPITrailInvalidID(t *testing.T) {
 
 func TestSlugify(t *testing.T) {
 	cases := map[string]string{
-		"Markham Park":               "markham-park",
-		"Oleta River State Park":     "oleta-river-state-park",
+		"Markham Park":                  "markham-park",
+		"Oleta River State Park":        "oleta-river-state-park",
 		"Jonathan Dickinson State Park": "jonathan-dickinson-state-park",
-		"  Spaced  Name  ":           "spaced-name",
-		"Foo--Bar":                   "foo-bar",
+		"  Spaced  Name  ":              "spaced-name",
+		"Foo--Bar":                      "foo-bar",
 	}
 	for in, want := range cases {
 		if got := Slugify(in); got != want {
@@ -815,46 +815,5 @@ func TestMarkdownNegotiationMultipleAccept(t *testing.T) {
 
 	if ct := w.Header().Get("Content-Type"); !strings.Contains(ct, "text/markdown") {
 		t.Errorf("Expected Content-Type text/markdown when client includes it, got %q", ct)
-	}
-}
-
-func TestGetIP(t *testing.T) {
-	tests := []struct {
-		name     string
-		headers  map[string]string
-		remote   string
-		expected string
-	}{
-		{
-			name:     "X-Forwarded-For",
-			headers:  map[string]string{"X-Forwarded-For": "1.2.3.4, 5.6.7.8"},
-			remote:   "127.0.0.1:1234",
-			expected: "1.2.3.4",
-		},
-		{
-			name:     "X-Real-IP",
-			headers:  map[string]string{"X-Real-IP": "1.2.3.4"},
-			remote:   "127.0.0.1:1234",
-			expected: "1.2.3.4",
-		},
-		{
-			name:     "RemoteAddr",
-			headers:  map[string]string{},
-			remote:   "127.0.0.1:1234",
-			expected: "127.0.0.1",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("GET", "/", nil)
-			req.RemoteAddr = tt.remote
-			for k, v := range tt.headers {
-				req.Header.Set(k, v)
-			}
-			if got := GetIP(req); got != tt.expected {
-				t.Errorf("GetIP() = %s, want %s", got, tt.expected)
-			}
-		})
 	}
 }

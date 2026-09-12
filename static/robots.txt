@@ -9,33 +9,96 @@ Disallow: /trails-list
 
 Sitemap: /sitemap.xml
 
+# AI crawlers may read trail information, but must not fetch metrics.
+# Search engines may fetch /metrics to read its X-Robots-Tag: noindex.
+# A blanket Disallow would prevent search engines from seeing that rule.
 # AI Crawlers
 User-agent: GPTBot
 Allow: /
+Disallow: /metrics
+Disallow: /vote
+Disallow: /trails-list
 
 User-agent: ChatGPT-User
 Allow: /
+Disallow: /metrics
+Disallow: /vote
+Disallow: /trails-list
 
 User-agent: ClaudeBot
 Allow: /
+Disallow: /metrics
+Disallow: /vote
+Disallow: /trails-list
 
 User-agent: Claude-SearchBot
 Allow: /
+Disallow: /metrics
+Disallow: /vote
+Disallow: /trails-list
 
 User-agent: PerplexityBot
 Allow: /
+Disallow: /metrics
+Disallow: /vote
+Disallow: /trails-list
 
 User-agent: Google-Extended
 Allow: /
+Disallow: /metrics
+Disallow: /vote
+Disallow: /trails-list
 
 User-agent: Applebot-Extended
 Allow: /
+Disallow: /metrics
+Disallow: /vote
+Disallow: /trails-list
 
 User-agent: Amazonbot
 Allow: /
+Disallow: /metrics
+Disallow: /vote
+Disallow: /trails-list
 
 User-agent: Bytespider
 Allow: /
+Disallow: /metrics
+Disallow: /vote
+Disallow: /trails-list
 
 User-agent: cohere-ai
 Allow: /
+Disallow: /metrics
+Disallow: /vote
+Disallow: /trails-list
+
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /metrics
+Disallow: /vote
+Disallow: /trails-list
+
+User-agent: Claude-User
+Allow: /
+Disallow: /metrics
+Disallow: /vote
+Disallow: /trails-list
+
+User-agent: Perplexity-User
+Allow: /
+Disallow: /metrics
+Disallow: /vote
+Disallow: /trails-list
+
+User-agent: CCBot
+Allow: /
+Disallow: /metrics
+Disallow: /vote
+Disallow: /trails-list
+
+User-agent: Meta-ExternalAgent
+Allow: /
+Disallow: /metrics
+Disallow: /vote
+Disallow: /trails-list
