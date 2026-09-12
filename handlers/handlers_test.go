@@ -537,9 +537,9 @@ func TestSitemapListsAllTrails(t *testing.T) {
 			t.Errorf("Expected sitemap to contain %q", needle)
 		}
 	}
-	// Should be 13 <url> entries: index + 12 trails.
-	if got := strings.Count(body, "<url>"); got != 13 {
-		t.Errorf("Expected 13 <url> entries (index + 12 trails), got %d", got)
+	// Index + methodology + 12 trails.
+	if got := strings.Count(body, "<url>"); got != 14 {
+		t.Errorf("Expected 14 <url> entries (index + methodology + 12 trails), got %d", got)
 	}
 }
 

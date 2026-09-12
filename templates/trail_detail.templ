@@ -27,16 +27,35 @@ func slugify(s string) string {
 
 templ TrailDetailPage(trail models.TrailWithStatus) {
 	@LayoutPath(
-		fmt.Sprintf("%s - SF Trails", trail.Name),
-		fmt.Sprintf("Current community-reported status, weather, and details for %s mountain bike trail in %s, FL.", trail.Name, trail.City),
+		fmt.Sprintf("%s Trail Conditions & Status | SF Trails", trail.Name),
+		fmt.Sprintf("Check %s trail conditions in %s, Florida: community rider reports, weather, and information to help plan your next bike ride.", trail.Name, trail.City),
 		"/trail/"+slugify(trail.Name),
 	) {
 		@templ.Raw(trailDetailJSONLD(trail))
-		<nav class="mb-4 text-sm">
-			<a href="/" class="text-blue-400 hover:underline">← All trails</a>
+		@templ.Raw(trailBreadcrumbJSONLD(trail))
+		<nav aria-label="Breadcrumb" class="mb-4 text-sm text-gray-400">
+			<a href="/" class="text-blue-400 hover:underline">South Florida trails</a>
+			<span aria-hidden="true"> / </span>
+			<span aria-current="page">{ trail.Name }</span>
 		</nav>
+		<h1 class="text-2xl sm:text-3xl font-bold text-white mb-4">{ trail.Name } trail conditions</h1>
 		<section aria-label="Trail detail">
 			@TrailCard(trail)
+		</section>
+		<section class="mt-6 space-y-3 text-gray-300" aria-labelledby="about-trail">
+			<h2 id="about-trail" class="text-xl font-bold text-white">About riding at { trail.Name }</h2>
+			if guide, ok := trailGuides[slugify(trail.Name)]; ok {
+				<p>{ guide.Summary }</p>
+				<p><a href={ templ.SafeURL(guide.URL) } class="text-blue-400 hover:underline">{ guide.Source }</a> — park information, maps and access requirements.</p>
+			} else {
+				<p>{ trail.Description }. Check with the park for designated bicycle routes and current access requirements.</p>
+			}
+		</section>
+		<section class="mt-6 space-y-3 text-gray-300" aria-labelledby="reading-reports">
+			<h2 id="reading-reports" class="text-xl font-bold text-white">Is { trail.Name } open for riding?</h2>
+			<p>The card above shows the current community vote. <strong>Unknown</strong> means fewer than three recent reports or a tied vote. A rider report is not an official park closure notice.</p>
+			<p>Use the park's notices and posted trail signs to confirm access. Weather can help you plan, but a rain forecast does not tell us whether the trail surface is rideable.</p>
+			<p><a href="/how-it-works" class="text-blue-400 hover:underline">Read how reports are counted</a> or <a href="/" class="text-blue-400 hover:underline">compare all South Florida trails</a>.</p>
 		</section>
 	}
 }

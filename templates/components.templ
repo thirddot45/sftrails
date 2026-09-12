@@ -21,7 +21,9 @@ templ TrailCard(trail models.TrailWithStatus) {
 	<article id={ fmt.Sprintf("trail-%d", trail.ID) } class="trail-card bg-gray-800 rounded-xl shadow p-5 mb-4">
 		<div class="flex items-start justify-between mb-1">
 			<div class="min-w-0 flex-1 mr-3">
-				<h2 class="text-lg font-bold text-white leading-tight">{ trail.Name }</h2>
+				<h2 class="text-lg font-bold text-white leading-tight">
+					<a href={ templ.SafeURL("/trail/" + slugify(trail.Name)) } class="hover:underline focus:underline">{ trail.Name }</a>
+				</h2>
 				<p class="text-sm text-gray-400">
 					{ trail.City }
 					if trail.HasDistance {

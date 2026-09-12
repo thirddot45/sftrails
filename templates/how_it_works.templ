@@ -1,0 +1,30 @@
+package templates
+
+templ HowItWorksPage() {
+	@LayoutPath("How Trail Conditions Are Reported | SF Trails", "Learn how SF Trails calculates community mountain bike trail status, what Unknown means, and how to check park information before riding in South Florida.", "/how-it-works") {
+		<h1 class="text-2xl sm:text-3xl font-bold text-white mb-4">How SF Trails reports trail conditions</h1>
+		<div class="space-y-6 text-gray-300">
+			<p>SF Trails helps South Florida riders share what they see on local trails. It is an independent community project, with no affiliation to the parks listed here. No account is needed to read conditions or submit a report.</p>
+			<section class="space-y-2">
+				<h2 class="text-xl font-bold text-white">How is Open or Closed decided?</h2>
+				<p>We first look for at least three reports from the last four hours. If there are fewer, we use reports from the last twelve hours. A majority of Rideable reports gives an Open status; a majority of Closed reports gives a Closed status.</p>
+				<p>A tie, or fewer than three reports in the twelve-hour window, gives an Unknown status. The two numbers on each card show Rideable and Closed report counts for the window being used.</p>
+			</section>
+			<section class="space-y-2">
+				<h2 class="text-xl font-bold text-white">How fresh are the reports?</h2>
+				<p>The trail list refreshes every 60 seconds. Reports older than twelve hours do not affect the status. Votes also reset daily at midnight UTC, which is 8 p.m. in South Florida during daylight saving time and 7 p.m. during standard time.</p>
+				<p>Reports depend on people visiting and sharing conditions. Unknown is a gap in information, so check with the park before travelling.</p>
+			</section>
+			<section class="space-y-2">
+				<h2 class="text-xl font-bold text-white">How can I help?</h2>
+				<p>After checking a trail in person, use Rideable or Closed on its card to share what you found. Duplicate reports from the same browser and network for the same trail are limited within a one-hour window.</p>
+				<p>Respect closures and stay on designated bike trails. Park managers and posted notices take priority over community reports.</p>
+			</section>
+			<section class="space-y-2">
+				<h2 class="text-xl font-bold text-white">Does the weather determine trail status?</h2>
+				<p>No. Forecasts from Open-Meteo are displayed separately when available. Only rider reports affect the status. Rainfall, drainage and trail maintenance can produce different conditions at nearby parks.</p>
+			</section>
+			<p><a href="/" class="text-blue-400 hover:underline">Check South Florida trail conditions</a></p>
+		</div>
+	}
+}

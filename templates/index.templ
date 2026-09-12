@@ -2,17 +2,26 @@ package templates
 
 import "sftrails/models"
 
+import "fmt"
+
 templ IndexPage(trails []models.TrailWithStatus, sortLabel string) {
-	@Layout("SF Trails - South Florida Mountain Bike Trail Status", "Check real-time trail conditions for South Florida mountain bike trails. Community-driven status reports for Markham Park, Oleta River, Virginia Key, and more.") {
+	@Layout("South Florida MTB Trail Conditions & Status | SF Trails", "Check community-reported mountain bike trail conditions across South Florida. Find Markham Park, Oleta River, Virginia Key and more, with weather and rider reports.") {
 		@templ.Raw(trailsJSONLDScript(trails))
-		<section aria-label="Trail status instructions" class="mb-6">
-			<p class="text-gray-300">Click <strong>Rideable</strong> or <strong>Closed</strong> to report current trail conditions. Status updates every 60 seconds.</p>
+		<section aria-label="Trail status instructions" class="mb-6 space-y-3">
+			<h1 class="text-2xl sm:text-3xl font-bold text-white">South Florida mountain bike trail conditions</h1>
+			<p class="text-gray-300">{ fmt.Sprintf("Check rider reports and weather for %d trails and parks, from Miami and Broward to Palm Beach and the Treasure Coast. Choose a trail for details before your next ride.", len(trails)) }</p>
+			<p class="text-sm text-gray-400">Ridden a trail recently? Select <strong>Rideable</strong> or <strong>Closed</strong> to share conditions. The list refreshes every 60 seconds. <a href="/how-it-works" class="text-blue-400 hover:underline">How trail status works</a></p>
 		</section>
 		<section aria-label="Trail sort controls">
 			@SortControls(sortLabel)
 		</section>
 		<section aria-label="Trail listings">
 			@TrailsList(trails)
+		</section>
+		<section class="mt-8 space-y-3 text-gray-300" aria-labelledby="before-you-ride">
+			<h2 id="before-you-ride" class="text-xl font-bold text-white">Before you ride</h2>
+			<p>SF Trails is an independent community tracker. Reports describe what riders have seen; park managers decide official access and closures. Check the park's notices and trailhead signs before heading out.</p>
+			<p>An <strong>Unknown</strong> status means there are too few recent reports or the vote is tied. It does not mean a trail is open. Rain forecasts provide context and do not determine trail status.</p>
 		</section>
 	}
 }

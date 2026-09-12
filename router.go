@@ -18,13 +18,20 @@ func newHTTPHandler(database *sql.DB, ws *weather.Store, clientIPMode string) (h
 	rl := handlers.NewRateLimiter(30, time.Minute)
 
 	md := handlers.MarkdownNegotiationMiddleware
+	noIndex := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("X-Robots-Tag", "noindex")
+			next.ServeHTTP(w, r)
+		})
+	}
 
 	mux := http.NewServeMux()
 	mux.Handle("GET /{$}", md(http.HandlerFunc(h.HandleIndex)))
+	mux.Handle("GET /how-it-works", md(http.HandlerFunc(h.HandleHowItWorks)))
 	mux.Handle("GET /trail/{slug}", md(http.HandlerFunc(h.HandleTrailDetail)))
-	mux.Handle("GET /trails-list", md(http.HandlerFunc(h.HandleTrailsList)))
+	mux.Handle("GET /trails-list", noIndex(md(http.HandlerFunc(h.HandleTrailsList))))
 	mux.Handle("POST /vote", rl.Middleware(md(http.HandlerFunc(h.HandleVote))))
-	mux.Handle("GET /status", md(http.HandlerFunc(h.HandleStatus)))
+	mux.Handle("GET /status", noIndex(md(http.HandlerFunc(h.HandleStatus))))
 	mux.Handle("GET /metrics", handlers.MetricsDiscoveryMiddleware(http.HandlerFunc(h.HandleMetrics)))
 	mux.Handle("GET /metrics.md", handlers.MetricsDiscoveryMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/metrics", http.StatusPermanentRedirect)
@@ -34,8 +41,8 @@ func newHTTPHandler(database *sql.DB, ws *weather.Store, clientIPMode string) (h
 	mux.HandleFunc("GET /.well-known/agent-skills/{path...}", h.HandleAgentSkillFile)
 	mux.HandleFunc("GET /robots.txt", h.HandleRobotsTxt)
 	mux.HandleFunc("GET /sitemap.xml", h.HandleSitemap)
-	mux.HandleFunc("GET /api/trails", h.HandleAPITrails)
-	mux.HandleFunc("GET /api/trails/{id}", h.HandleAPITrail)
+	mux.Handle("GET /api/trails", noIndex(http.HandlerFunc(h.HandleAPITrails)))
+	mux.Handle("GET /api/trails/{id}", noIndex(http.HandlerFunc(h.HandleAPITrail)))
 	mux.HandleFunc("GET /llms.txt", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "./static/llms.txt")
 	})

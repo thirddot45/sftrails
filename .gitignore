@@ -41,3 +41,6 @@ tmp/
 .env
 .env.*
 !.env.example
+
+# CSS build dependencies
+node_modules/
