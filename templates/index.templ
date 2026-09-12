@@ -1,57 +1,6 @@
 package templates
 
-import (
-	"sftrails/models"
-	"fmt"
-	"strings"
-)
-
-func trailsJSONLD(trails []models.TrailWithStatus) string {
-	var items []string
-	for _, t := range trails {
-		status := "Unknown"
-		if t.Status == models.StatusOpen {
-			status = "Open"
-		} else if t.Status == models.StatusClosed {
-			status = "Closed"
-		}
-		item := fmt.Sprintf(`{
-			"@type": "SportsActivityLocation",
-			"name": %q,
-			"description": %q,
-			"address": {
-				"@type": "PostalAddress",
-				"addressLocality": %q,
-				"addressRegion": "FL",
-				"addressCountry": "US"
-			},
-			"geo": {
-				"@type": "GeoCoordinates",
-				"latitude": %f,
-				"longitude": %f
-			},
-			"publicAccess": true,
-			"additionalProperty": {
-				"@type": "PropertyValue",
-				"name": "Trail Status",
-				"value": %q
-			}
-		}`, t.Name, t.Description, t.City, t.Latitude, t.Longitude, status)
-		items = append(items, item)
-	}
-	return fmt.Sprintf(`{
-		"@context": "https://schema.org",
-		"@type": "WebSite",
-		"name": "SF Trails",
-		"url": "https://sftrails.info",
-		"description": "Community-driven South Florida mountain bike trail status reports",
-		"hasPart": [%s]
-	}`, strings.Join(items, ","))
-}
-
-func trailsJSONLDScript(trails []models.TrailWithStatus) string {
-	return `<script type="application/ld+json">` + trailsJSONLD(trails) + `</script>`
-}
+import "sftrails/models"
 
 templ IndexPage(trails []models.TrailWithStatus, sortLabel string) {
 	@Layout("SF Trails - South Florida Mountain Bike Trail Status", "Check real-time trail conditions for South Florida mountain bike trails. Community-driven status reports for Markham Park, Oleta River, Virginia Key, and more.") {

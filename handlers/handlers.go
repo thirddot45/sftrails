@@ -3,11 +3,14 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"sftrails/db"
@@ -17,8 +20,11 @@ import (
 )
 
 type Handler struct {
-	db      *sql.DB
-	weather *weather.Store
+	db             *sql.DB
+	weather        *weather.Store
+	metricsMu      sync.Mutex
+	metricsCache   models.SiteMetrics
+	metricsExpires time.Time
 }
 
 func NewHandler(database *sql.DB, ws *weather.Store) *Handler {
@@ -138,8 +144,37 @@ func (h *Handler) HandleTrailsList(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// maxVoteBodyBytes caps the /vote request body. The form is three short
+// fields; 4 KB leaves generous headroom while preventing memory abuse.
+const maxVoteBodyBytes = 4 << 10
+
+// maxFingerprintLen caps the client-supplied fingerprint. The bundled
+// fingerprint.js produces an 8-char hex hash; 64 allows alternative clients
+// without letting arbitrary payloads into the votes table.
+const maxFingerprintLen = 64
+
 func (h *Handler) HandleVote(w http.ResponseWriter, r *http.Request) {
+	// Reject cross-site browser submissions; non-browser form clients can
+	// still vote without an Origin header and remain subject to rate limits.
+	origin := r.Header.Get("Origin")
+	if r.Header.Get("Sec-Fetch-Site") == "cross-site" {
+		http.Error(w, "Cross-site vote rejected", http.StatusForbidden)
+		return
+	}
+	if origin != "" {
+		u, err := url.Parse(origin)
+		if err != nil || (u.Scheme != "https" && u.Scheme != "http") || !strings.EqualFold(u.Host, r.Host) {
+			http.Error(w, "Cross-site vote rejected", http.StatusForbidden)
+			return
+		}
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxVoteBodyBytes)
 	if err := r.ParseForm(); err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			http.Error(w, "Vote request too large", http.StatusRequestEntityTooLarge)
+			return
+		}
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
@@ -147,6 +182,10 @@ func (h *Handler) HandleVote(w http.ResponseWriter, r *http.Request) {
 	trailIDStr := r.FormValue("trail_id")
 	voteStr := r.FormValue("vote")
 	fingerprint := r.FormValue("fingerprint")
+	if len(fingerprint) > maxFingerprintLen {
+		http.Error(w, "Invalid fingerprint", http.StatusBadRequest)
+		return
+	}
 
 	trailID, err := strconv.ParseInt(trailIDStr, 10, 64)
 	if err != nil || trailID <= 0 {
@@ -168,6 +207,10 @@ func (h *Handler) HandleVote(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	ip := GetIP(r)
 	if err := db.CastVote(ctx, h.db, trailID, voteType, ip, fingerprint); err != nil {
+		if errors.Is(err, db.ErrTrailNotFound) {
+			http.NotFound(w, r)
+			return
+		}
 		slog.Error("failed to cast vote", "trail_id", trailID, "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return

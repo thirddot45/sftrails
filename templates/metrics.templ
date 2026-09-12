@@ -39,10 +39,10 @@ func shortDay(date string) string {
 }
 
 templ MetricsPage(m models.SiteMetrics) {
-	@Layout("SF Trails - Metrics", "Site traffic metrics for SF Trails.") {
+	@LayoutDocument("SF Trails - Metrics", "Site traffic metrics for SF Trails.", "/metrics", false) {
 		<section aria-label="Metrics overview" class="mb-6">
 			<h2 class="text-xl font-bold text-white mb-2">Site Metrics</h2>
-			<p class="text-gray-400 text-sm">Privacy-friendly traffic overview. No IP addresses or personal data are stored or shown.</p>
+			<p class="text-gray-400 text-sm">Aggregate traffic counts, refreshed once a minute. Individual visitor records and IP addresses are not shown.</p>
 		</section>
 
 		<section aria-label="Totals" class="mb-8">

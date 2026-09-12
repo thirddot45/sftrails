@@ -1,4 +1,4 @@
-FROM golang:1-alpine AS build
+FROM golang:1.26.8-alpine AS build
 
 RUN apk add --no-cache ca-certificates
 # Pin the templ generator to the runtime version in go.mod. Using @latest can
@@ -21,5 +21,9 @@ COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certifica
 COPY --from=build /sftrails /sftrails
 COPY static/ /static/
 
+# This image is deployed behind DigitalOcean App Platform ingress. Override
+# CLIENT_IP_MODE=direct when using it outside that trusted boundary.
+ENV CLIENT_IP_MODE=digitalocean
+USER 65532:65532
 EXPOSE 8080
 ENTRYPOINT ["/sftrails"]

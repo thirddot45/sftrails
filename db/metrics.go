@@ -9,8 +9,8 @@ import (
 	"sftrails/models"
 )
 
-// RecordPageView stores a single page view. visitorHash is a salted, one-way
-// hash of the visitor used only for approximate unique counts; no IP address is
+// RecordPageView stores a single page view. visitorHash is a keyed pseudonymous
+// identifier of the visitor used only for approximate unique counts; no IP address is
 // ever stored.
 func RecordPageView(ctx context.Context, db *sql.DB, path, visitorHash string) error {
 	_, err := db.ExecContext(ctx,

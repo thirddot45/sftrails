@@ -7,18 +7,18 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
 	"sftrails/db"
-	"sftrails/handlers"
 	"sftrails/weather"
 )
 
 func startVoteResetScheduler(ctx context.Context, database *sql.DB) {
 	for {
-		now := time.Now()
-		next := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
+		now := time.Now().UTC()
+		next := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, time.UTC)
 		timer := time.NewTimer(time.Until(next))
 		select {
 		case <-ctx.Done():
@@ -77,36 +77,24 @@ func main() {
 		go ws.StartScheduler(ctx)
 	}
 
-	h := handlers.NewHandler(database, ws)
-	rl := handlers.NewRateLimiter(30, time.Minute)
-
-	md := handlers.MarkdownNegotiationMiddleware
-
-	mux := http.NewServeMux()
-	mux.Handle("GET /{$}", md(http.HandlerFunc(h.HandleIndex)))
-	mux.Handle("GET /trail/{slug}", md(http.HandlerFunc(h.HandleTrailDetail)))
-	mux.Handle("GET /trails-list", md(http.HandlerFunc(h.HandleTrailsList)))
-	mux.Handle("POST /vote", rl.Middleware(md(http.HandlerFunc(h.HandleVote))))
-	mux.Handle("GET /status", md(http.HandlerFunc(h.HandleStatus)))
-	mux.Handle("GET /metrics", handlers.BasicAuthMiddleware("SF Trails Metrics", md(http.HandlerFunc(h.HandleMetrics))))
-	mux.HandleFunc("GET /.well-known/http-message-signatures-directory", h.HandleSignatureDirectory)
-	mux.HandleFunc("GET /.well-known/agent-skills/index.json", h.HandleAgentSkillsIndex)
-	mux.HandleFunc("GET /.well-known/agent-skills/{path...}", h.HandleAgentSkillFile)
-	mux.HandleFunc("GET /robots.txt", h.HandleRobotsTxt)
-	mux.HandleFunc("GET /sitemap.xml", h.HandleSitemap)
-	mux.HandleFunc("GET /api/trails", h.HandleAPITrails)
-	mux.HandleFunc("GET /api/trails/{id}", h.HandleAPITrail)
-	mux.HandleFunc("GET /llms.txt", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "./static/llms.txt")
-	})
-	mux.HandleFunc("GET /llms-full.txt", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "./static/llms-full.txt")
-	})
-	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
+	appHandler, err := newHTTPHandler(database, ws, os.Getenv("CLIENT_IP_MODE"))
+	if err != nil {
+		slog.Error("invalid server configuration", "error", err)
+		os.Exit(1)
+	}
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	if n, err := strconv.Atoi(port); err != nil || n < 1 || n > 65535 {
+		slog.Error("PORT must be between 1 and 65535")
+		os.Exit(1)
+	}
 
 	server := &http.Server{
-		Addr:              ":8080",
-		Handler:           handlers.LoggingMiddleware(handlers.MarkdownSuffixMiddleware(handlers.MetricsMiddleware(database)(mux))),
+		Addr:              ":" + port,
+		Handler:           appHandler,
+		MaxHeaderBytes:    32 << 10,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      15 * time.Second,
@@ -124,7 +112,7 @@ func main() {
 		server.Shutdown(shutdownCtx)
 	}()
 
-	slog.Info("server starting", "addr", "http://localhost:8080")
+	slog.Info("server starting", "addr", server.Addr)
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
 		slog.Error("server error", "error", err)
 		os.Exit(1)

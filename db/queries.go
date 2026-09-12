@@ -132,22 +132,34 @@ func GetTrailWithStatus(ctx context.Context, db *sql.DB, trailID int64) (*models
 	return &t, nil
 }
 
+var ErrTrailNotFound = errors.New("trail not found")
+
 func CastVote(ctx context.Context, db *sql.DB, trailID int64, vote models.VoteType, ip string, fingerprint string) error {
-	dup, err := HasRecentVote(ctx, db, trailID, ip, fingerprint)
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin vote: %w", err)
+	}
+	defer tx.Rollback()
+	// Serialize submissions for the same trail before checking duplicates.
+	// The database lock works across app instances, not just within a process.
+	if err := lockVoteTrail(ctx, tx, trailID); err != nil {
+		return err
+	}
+	dup, err := hasRecentVote(ctx, tx, trailID, ip, fingerprint)
 	if err != nil {
 		return fmt.Errorf("check recent vote: %w", err)
 	}
 	if dup {
-		return nil
+		return tx.Commit()
 	}
-	_, err = db.ExecContext(ctx,
+	_, err = tx.ExecContext(ctx,
 		`INSERT INTO votes (trail_id, vote, ip_address, fingerprint) VALUES (`+placeholders(4)+`)`,
 		trailID, string(vote), ip, fingerprint,
 	)
 	if err != nil {
 		return fmt.Errorf("insert vote: %w", err)
 	}
-	return nil
+	return tx.Commit()
 }
 
 func ResetVotes(ctx context.Context, db *sql.DB) (int64, error) {
@@ -159,6 +171,14 @@ func ResetVotes(ctx context.Context, db *sql.DB) (int64, error) {
 }
 
 func HasRecentVote(ctx context.Context, db *sql.DB, trailID int64, ip string, fingerprint string) (bool, error) {
+	return hasRecentVote(ctx, db, trailID, ip, fingerprint)
+}
+
+type voteQuerier interface {
+	QueryRowContext(context.Context, string, ...any) *sql.Row
+}
+
+func hasRecentVote(ctx context.Context, db voteQuerier, trailID int64, ip string, fingerprint string) (bool, error) {
 	var exists bool
 	err := db.QueryRowContext(ctx,
 		`SELECT EXISTS(SELECT 1 FROM votes WHERE trail_id = `+ph(1)+` AND ip_address = `+ph(2)+` AND fingerprint = `+ph(3)+` AND created_at >= `+datetimeAge(1)+` LIMIT 1)`,

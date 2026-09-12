@@ -79,7 +79,9 @@ func approximateTokens(s string) int {
 func MarkdownSuffixMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p := r.URL.Path
-		if !strings.HasSuffix(p, ".md") {
+		// Metrics is HTML-only. Static files and agent SKILL.md documents must
+		// keep their literal filenames instead of being rewritten as pages.
+		if p == "/metrics.md" || strings.HasPrefix(p, "/static/") || strings.HasPrefix(p, "/.well-known/") || !strings.HasSuffix(p, ".md") {
 			next.ServeHTTP(w, r)
 			return
 		}

@@ -22,11 +22,11 @@ type UserLocation struct {
 }
 
 const (
-	locCookieName    = "sft_loc"
-	labelCookieName  = "sft_loc_label"
-	maxLocCookieLen  = 48  // "-89.1234,-179.1234" is 18 bytes; 48 is a generous cap
-	maxLabelCookie   = 64  // URL-encoded "ZIP 99999" fits easily; 64 rejects payload dumps
-	defaultLocLabel  = "my location"
+	locCookieName   = "sft_loc"
+	labelCookieName = "sft_loc_label"
+	maxLocCookieLen = 48 // "-89.1234,-179.1234" is 18 bytes; 48 is a generous cap
+	maxLabelCookie  = 64 // URL-encoded "ZIP 99999" fits easily; 64 rejects payload dumps
+	defaultLocLabel = "my location"
 )
 
 // labelPattern accepts only values the app intentionally generates.
@@ -45,11 +45,11 @@ func ReadUserLocation(r *http.Request) *UserLocation {
 		return nil
 	}
 	lat, err := strconv.ParseFloat(strings.TrimSpace(parts[0]), 64)
-	if err != nil || lat < -90 || lat > 90 {
+	if err != nil || math.IsNaN(lat) || math.IsInf(lat, 0) || lat < -90 || lat > 90 {
 		return nil
 	}
 	lng, err := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64)
-	if err != nil || lng < -180 || lng > 180 {
+	if err != nil || math.IsNaN(lng) || math.IsInf(lng, 0) || lng < -180 || lng > 180 {
 		return nil
 	}
 	label := defaultLocLabel
