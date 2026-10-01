@@ -64,12 +64,18 @@ App Platform settings. The page shows totals, daily counts, and top page paths;
 it does not expose individual visitor hashes, IP addresses, or user agents.
 Snapshots refresh at most once a minute to bound database work.
 
+The dashboard renders bare name/value data points — totals, a per-day
+breakdown, and top paths — with no stylesheet, scripts, header, footer, or
+navigation. It does not use the site layout, so the only thing a crawler could
+index is the numbers themselves.
+
 The dashboard sends `X-Robots-Tag: noindex, nofollow, nosnippet, noarchive` and a
 matching HTML meta tag. It has no sitemap, JSON-LD, social, or agent-discovery
 entry. `/metrics.md` redirects to the HTML dashboard and `Accept: text/markdown`
 does not convert it. Known AI crawler groups in `robots.txt` disallow `/metrics`
 (including its suffix/query variants); the response also opts out through
-`Content-Signal`. Ordinary search crawlers can fetch the noindex header: blocking
+`Content-Signal`, and a request carrying a known AI crawler User-Agent is
+refused with `403`. Ordinary search crawlers can fetch the noindex header: blocking
 all crawling with robots.txt would prevent them from seeing it. These are
 cooperative discovery controls, not access restrictions or a guarantee that a
 public URL cannot be fetched, indexed, or used by an uncooperative agent.

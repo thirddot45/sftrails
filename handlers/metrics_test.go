@@ -25,8 +25,66 @@ func TestHandleMetricsRendersPublicly(t *testing.T) {
 		t.Fatalf("Expected 200, got %d", w.Code)
 	}
 	body := w.Body.String()
-	if !strings.Contains(body, "Site Metrics") {
+	if !strings.Contains(body, "SF Trails Metrics") {
 		t.Errorf("Expected metrics page body, got %q", body)
+	}
+}
+
+// TestHandleMetricsRendersOnlyDataPoints pins the dashboard to bare name/value
+// output: every aggregate it exists to report, and no styling, scripts, or site
+// chrome that a crawler could index alongside the numbers.
+func TestHandleMetricsRendersOnlyDataPoints(t *testing.T) {
+	h := setupTestHandler(t)
+	dir, err := changeToProjectRoot()
+	if err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	defer restoreDir(t, dir)
+
+	w := httptest.NewRecorder()
+	h.HandleMetrics(w, httptest.NewRequest("GET", "/metrics", nil))
+	body := w.Body.String()
+
+	for _, label := range []string{"Total visits", "Unique visitors", "Visits today", "Unique today", "Last 7 days", "Top pages"} {
+		if !strings.Contains(body, label) {
+			t.Errorf("Expected data point %q in metrics page", label)
+		}
+	}
+	for _, marker := range []string{"tailwind", "htmx", "<script", "<style", "class=", "<header", "<footer", "South Florida Mountain Bike Trail Status"} {
+		if strings.Contains(strings.ToLower(body), strings.ToLower(marker)) {
+			t.Errorf("Metrics page should be bare data points, but contains %q", marker)
+		}
+	}
+	// No discovery markup either.
+	for _, marker := range []string{`rel="canonical"`, `type="text/markdown"`, "og:image", "og:title", "ld+json", "twitter:card"} {
+		if strings.Contains(body, marker) {
+			t.Errorf("Metrics page must not emit discovery markup %q", marker)
+		}
+	}
+}
+
+// TestMetricsRobotsTagMatchesHeader keeps the page's <meta name="robots"> tag
+// and the X-Robots-Tag response header in agreement, so a change to one cannot
+// silently leave the other behind.
+func TestMetricsRobotsTagMatchesHeader(t *testing.T) {
+	h := setupTestHandler(t)
+	dir, err := changeToProjectRoot()
+	if err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	defer restoreDir(t, dir)
+
+	w := httptest.NewRecorder()
+	MetricsDiscoveryMiddleware(http.HandlerFunc(h.HandleMetrics)).
+		ServeHTTP(w, httptest.NewRequest("GET", "/metrics", nil))
+
+	header := w.Header().Get("X-Robots-Tag")
+	if header == "" {
+		t.Fatal("Expected an X-Robots-Tag header on the metrics response")
+	}
+	want := `<meta name="robots" content="` + header + `">`
+	if !strings.Contains(w.Body.String(), want) {
+		t.Errorf("Expected the page to carry %s matching the X-Robots-Tag header", want)
 	}
 }
 

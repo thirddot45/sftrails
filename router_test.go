@@ -68,7 +68,7 @@ func TestPublicMetricsDiscovery(t *testing.T) {
 				t.Error("metrics must stay HTML")
 			}
 			body := w.Body.String()
-			if !strings.Contains(body, "Site Metrics") || !strings.Contains(body, `name="robots" content="noindex`) {
+			if !strings.Contains(body, "SF Trails Metrics") || !strings.Contains(body, `name="robots" content="noindex`) {
 				t.Error("missing public dashboard or meta noindex")
 			}
 			for _, forbidden := range []string{`rel="alternate"`, `rel="canonical"`, "application/ld+json", `property="og:`, `name="twitter:`} {
