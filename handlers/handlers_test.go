@@ -695,6 +695,86 @@ func TestRobotsTxtAICrawlers(t *testing.T) {
 	}
 }
 
+// parseRobotsGroups splits a robots.txt body into its User-agent groups. A
+// group is one or more consecutive User-agent lines followed by its rules; the
+// next User-agent line after a rule line starts a new group. It returns, per
+// group, the agent names and whether the group disallows /metrics.
+func parseRobotsGroups(body string) []robotsGroup {
+	var groups []robotsGroup
+	lastWasAgent := false
+	for _, line := range strings.Split(body, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if strings.HasPrefix(line, "User-agent:") {
+			ua := strings.TrimSpace(strings.TrimPrefix(line, "User-agent:"))
+			if lastWasAgent && len(groups) > 0 {
+				last := &groups[len(groups)-1]
+				last.agents = append(last.agents, ua)
+			} else {
+				groups = append(groups, robotsGroup{agents: []string{ua}})
+			}
+			lastWasAgent = true
+			continue
+		}
+		lastWasAgent = false
+		if len(groups) > 0 && strings.EqualFold(line, "Disallow: /metrics") {
+			groups[len(groups)-1].disallowsMetrics = true
+		}
+	}
+	return groups
+}
+
+type robotsGroup struct {
+	agents           []string
+	disallowsMetrics bool
+}
+
+// TestRobotsTxtMetricsDisallowShape locks in the deliberate split in
+// robots.txt: every named crawler group disallows /metrics, while the wildcard
+// group does not. The wildcard exemption is load-bearing — an ordinary search
+// crawler has to be allowed to fetch /metrics in order to read its
+// X-Robots-Tag: noindex, and a blanket Disallow would hide that rule and can
+// leave the URL indexed from inbound links alone.
+func TestRobotsTxtMetricsDisallowShape(t *testing.T) {
+	h := setupTestHandler(t)
+	oldDir, err := changeToProjectRoot()
+	if err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	defer restoreDir(t, oldDir)
+
+	req := httptest.NewRequest("GET", "/robots.txt", nil)
+	w := httptest.NewRecorder()
+	h.HandleRobotsTxt(w, req)
+
+	groups := parseRobotsGroups(w.Body.String())
+	if len(groups) < 2 {
+		t.Fatalf("Expected robots.txt to define multiple User-agent groups, found %d", len(groups))
+	}
+
+	named := 0
+	for _, g := range groups {
+		isWildcard := len(g.agents) == 1 && g.agents[0] == "*"
+		switch {
+		case isWildcard:
+			if g.disallowsMetrics {
+				t.Error("The wildcard group must NOT disallow /metrics, or search crawlers " +
+					"cannot fetch the page to see its X-Robots-Tag: noindex")
+			}
+		default:
+			named++
+			if !g.disallowsMetrics {
+				t.Errorf("robots.txt group %q does not disallow /metrics", strings.Join(g.agents, ", "))
+			}
+		}
+	}
+	if named == 0 {
+		t.Error("Expected at least one named crawler group disallowing /metrics")
+	}
+}
+
 func TestVotePersistsOnRefresh(t *testing.T) {
 	h := setupTestHandler(t)
 

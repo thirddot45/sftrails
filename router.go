@@ -32,10 +32,14 @@ func newHTTPHandler(database *sql.DB, ws *weather.Store, clientIPMode string) (h
 	mux.Handle("GET /trails-list", noIndex(md(http.HandlerFunc(h.HandleTrailsList))))
 	mux.Handle("POST /vote", rl.Middleware(md(http.HandlerFunc(h.HandleVote))))
 	mux.Handle("GET /status", noIndex(md(http.HandlerFunc(h.HandleStatus))))
-	mux.Handle("GET /metrics", handlers.MetricsDiscoveryMiddleware(http.HandlerFunc(h.HandleMetrics)))
-	mux.Handle("GET /metrics.md", handlers.MetricsDiscoveryMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// robots.txt disallows AI crawlers from /metrics; blockAI enforces that for
+	// the ones that ask anyway. Search crawlers are intentionally not blocked —
+	// they must be able to fetch the page to read its X-Robots-Tag: noindex.
+	blockAI := handlers.BlockAICrawlersMiddleware
+	mux.Handle("GET /metrics", blockAI(handlers.MetricsDiscoveryMiddleware(http.HandlerFunc(h.HandleMetrics))))
+	mux.Handle("GET /metrics.md", blockAI(handlers.MetricsDiscoveryMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/metrics", http.StatusPermanentRedirect)
-	})))
+	}))))
 	mux.HandleFunc("GET /.well-known/http-message-signatures-directory", h.HandleSignatureDirectory)
 	mux.HandleFunc("GET /.well-known/agent-skills/index.json", h.HandleAgentSkillsIndex)
 	mux.HandleFunc("GET /.well-known/agent-skills/{path...}", h.HandleAgentSkillFile)
