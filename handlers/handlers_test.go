@@ -630,17 +630,19 @@ func TestIndexAlternateMarkdownLink(t *testing.T) {
 	}
 }
 
-func TestTrailCardAlwaysShowsVoteCounts(t *testing.T) {
+func TestTrailCardShowsEmptyReportState(t *testing.T) {
 	h := setupTestHandler(t)
 	req := httptest.NewRequest("GET", "/", nil)
 	w := httptest.NewRecorder()
 	h.HandleIndex(w, req)
 
 	body := w.Body.String()
-	// Every trail in seed data starts with 0 votes; the card should still
-	// render "0/0" rather than omitting the count.
-	if !strings.Contains(body, "0/0") {
-		t.Error("Expected unvoted trails to display 0/0, but no 0/0 found in body")
+	// Every seeded trail has no reports, rather than an implied open status.
+	if strings.Count(body, "No recent reports") != 12 {
+		t.Error("Expected each unvoted trail to explain its empty report state")
+	}
+	if strings.Contains(body, "0/0") || strings.Contains(body, "Last report:") {
+		t.Error("Empty cards must not show unexplained counts or invent report times")
 	}
 }
 
@@ -719,8 +721,8 @@ func TestVotePersistsOnRefresh(t *testing.T) {
 	h.HandleIndex(w, req)
 
 	body := w.Body.String()
-	if !strings.Contains(body, "1/0") {
-		t.Error("Expected vote count '1/0' to persist after refresh")
+	if !strings.Contains(body, "1 rideable · 0 closed") {
+		t.Error("Expected vote count '1 rideable · 0 closed' to persist after refresh")
 	}
 }
 

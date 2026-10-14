@@ -40,3 +40,6 @@ func dateOnly(col string) string { return "date(" + col + ")" }
 
 // todayPredicate returns a boolean expression true when col falls on today.
 func todayPredicate(col string) string { return "date(" + col + ") = date('now')" }
+
+// reportUnixTime normalizes report timestamps for consistent nullable scanning.
+func reportUnixTime(col string) string { return "CAST(strftime('%s', " + col + ") AS INTEGER)" }

@@ -39,3 +39,8 @@ func dateOnly(col string) string { return "to_char(" + col + " AT TIME ZONE 'UTC
 func todayPredicate(col string) string {
 	return "(" + col + " AT TIME ZONE 'UTC')::date = (NOW() AT TIME ZONE 'UTC')::date"
 }
+
+// reportUnixTime normalizes report timestamps for consistent nullable scanning.
+func reportUnixTime(col string) string {
+	return "CAST(FLOOR(EXTRACT(EPOCH FROM " + col + ")) AS BIGINT)"
+}

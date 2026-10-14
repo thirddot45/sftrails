@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"sftrails/models"
 )
@@ -12,7 +13,7 @@ import (
 // statusColumns is the shared SELECT expression for computing trail status.
 // It uses a single vote subquery (v) filtered to 12h, with conditional SUMs
 // to derive both the 4h and 12h windows from one table scan.
-const statusColumns = `
+var statusColumns = `
 	COALESCE(
 		CASE
 			WHEN COALESCE(v.total_4h, 0) >= 3 THEN
@@ -42,7 +43,10 @@ const statusColumns = `
 	CASE
 		WHEN COALESCE(v.total_4h, 0) >= 3 THEN COALESCE(v.total_4h, 0)
 		ELSE COALESCE(v.total_12h, 0)
-	END AS total_votes`
+	END AS total_votes,
+	CASE WHEN COALESCE(v.total_4h, 0) >= 3 THEN 4 ELSE 12 END AS report_window_hours,
+	(SELECT ` + reportUnixTime("latest.created_at") + ` FROM votes latest
+	 WHERE latest.trail_id = t.id ORDER BY latest.created_at DESC LIMIT 1) AS last_report_at`
 
 // voteSubquery returns a single LEFT JOIN that computes both 4h and 12h
 // vote windows in one pass over the votes table (filtered to 12h).
@@ -71,14 +75,19 @@ func voteSubquery(filtered bool) string {
 func scanTrail(scanner interface{ Scan(dest ...any) error }) (models.TrailWithStatus, error) {
 	var t models.TrailWithStatus
 	var status string
+	var lastReport sql.NullInt64
 	if err := scanner.Scan(
 		&t.ID, &t.Name, &t.Location, &t.City, &t.Description,
 		&t.Latitude, &t.Longitude, &t.CreatedAt, &t.UpdatedAt,
 		&status, &t.OpenVotes, &t.ClosedVotes, &t.TotalVotes,
+		&t.ReportWindowHours, &lastReport,
 	); err != nil {
 		return t, err
 	}
 	t.Status = models.TrailStatus(status)
+	if lastReport.Valid {
+		t.LastReportAt = time.Unix(lastReport.Int64, 0).UTC()
+	}
 	return t, nil
 }
 

@@ -44,6 +44,11 @@ type TrailWithStatus struct {
 	OpenVotes   int
 	ClosedVotes int
 	TotalVotes  int
+	// ReportWindowHours is the window used for the displayed counts (4 or 12).
+	ReportWindowHours int
+	// LastReportAt is the latest stored rider report, even outside that window.
+	// Zero means no stored report is available; it is not a page refresh time.
+	LastReportAt time.Time
 	// Weather fields (populated once daily from Open-Meteo)
 	HasWeather       bool
 	WeatherIcon      string
