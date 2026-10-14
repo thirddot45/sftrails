@@ -1,4 +1,4 @@
-FROM golang:1.26.8-alpine AS build
+FROM golang:1.26.9-alpine AS build
 
 RUN apk add --no-cache ca-certificates
 # Pin the templ generator to the runtime version in go.mod. Using @latest can
