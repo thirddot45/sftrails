@@ -21,7 +21,7 @@ func SeedTrails(ctx context.Context, db *sql.DB) error {
 	}{
 		{"Markham Park", "Sunrise", "Sunrise", "Technical singletrack with rock gardens and log features", 26.1256, -80.3584},
 		{"Oleta River State Park", "North Miami Beach", "North Miami Beach", "Flowy trails through mangroves with bay views", 25.9207, -80.1412},
-		{"Virginia Key", "Key Biscayne", "Key Biscayne", "Tight singletrack through coastal hardwood hammock", 25.7380, -80.1526},
+		{"Virginia Key", "Miami", "Miami", "Tight singletrack through coastal hardwood hammock", 25.7380, -80.1526},
 		{"Quiet Waters Park", "Deerfield Beach", "Deerfield Beach", "Beginner-friendly flat trails with fun features", 26.3048, -80.1268},
 		{"Halpatiokee Regional Park", "Stuart", "Stuart", "Natural terrain trails through pine flatwoods", 27.1312, -80.4062},
 		{"Amelia Earhart Park", "Hialeah", "Hialeah", "Short but fun loops with tabletops and berms", 25.9223, -80.2917},
@@ -30,7 +30,7 @@ func SeedTrails(ctx context.Context, db *sql.DB) error {
 		{"Dyer Park", "West Palm Beach", "West Palm Beach", "Fast and flowy with nice elevation changes", 26.6358, -80.1530},
 		{"Pinehurst Park", "Greenacres", "Greenacres", "Compact trail system with good mix of terrain", 26.6174, -80.1586},
 		{"West Delray Regional Park", "Delray Beach", "Delray Beach", "Well-maintained trails with progressive features", 26.4472, -80.1516},
-		{"Tree Tops Park", "Davie", "Davie", "Shaded trails through tropical hardwood hammock", 26.0585, -80.2706},
+		{"Tree Tops Park", "Davie", "Davie", "Recreational cycling on designated bike paths; check park maps and signs", 26.0585, -80.2706},
 	}
 
 	tx, err := db.BeginTx(ctx, nil)

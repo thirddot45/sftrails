@@ -2,6 +2,7 @@ package templates
 
 // Short editorial notes, checked against the linked park authorities on
 // 2026-09-12. Keep changing fees, hours and closure notices at the source.
+// Tree Tops was added and Virginia Key rechecked on 2026-10-13.
 type trailGuide struct {
 	Summary string
 	Source  string
@@ -53,6 +54,11 @@ var trailGuides = map[string]trailGuide{
 		"Riverbend offers shared hiking and bicycling on compacted shell-rock paths near the Loxahatchee River. These are multi-use recreational routes; expect walkers and choose a pace that leaves room for other visitors.",
 		"Palm Beach County: Riverbend hiking and bicycling trails",
 		"https://discover.pbc.gov/parks/Riverbend/Hiking-Bicycling.aspx",
+	},
+	"tree-tops-park": {
+		"Tree Tops Park offers recreational bicycling on designated bike paths. Davie's trail guide identifies a paved bike path near the equestrian area and says park trail maps are available at the entrance gatehouse. Follow posted bicycle-route signs; do not assume the adjoining nature and equestrian trails permit bikes.",
+		"Town of Davie: Pine Island Ridge trail and Tree Tops access",
+		"https://www.davie-fl.gov/487/Pine-Island-Ridge-Trail",
 	},
 	"virginia-key": {
 		"Virginia Key's North Point trails are in the City of Miami. The mountain bike network was developed with Virginia Key Bicycle Club volunteers and includes routes for different skill levels near the waterfront.",

@@ -13,5 +13,8 @@ func Initialize(ctx context.Context, d *sql.DB) error {
 	if err := SeedTrails(ctx, d); err != nil {
 		return fmt.Errorf("seed trails: %w", err)
 	}
+	if err := correctTrailCatalogue(ctx, d); err != nil {
+		return fmt.Errorf("correct trail catalogue: %w", err)
+	}
 	return nil
 }
